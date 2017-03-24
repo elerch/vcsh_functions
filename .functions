@@ -44,3 +44,97 @@ if [[ ( -n "$BASH_VERSION" && $(type -t workon) != function ) || \
     eval "$v() { load_virtualenv $v \"\$@\"; }"
   done
 fi
+
+function create-dotfile-repo() {
+  if (( $# != 1 ))
+  then
+    echo "Usage: create-dotfile-repo dotfile"
+    return 1
+  fi
+  nodot=$(echo $1|cut -c 2-)
+  github_out=$(create-repo-github vcsh_$nodot)
+  ssh_url=$(echo $github_out | fgrep ssh_url | cut -f 2- -d : |cut -f 2 -d \")
+  clone_url=$(echo $github_out | fgrep clone_url | cut -f 2- -d : |cut -f 2 -d \")
+  vcsh clone $ssh_url $nodot
+  vcsh $nodot add -f $1
+
+  # Add .gitignore. See http://www.martin-burger.net/blog/unix-shell/manage-dotfiles-quickly-and-effortlessly/
+  vcsh write-gitignore $nodot
+  vcsh $nodot add -f .gitignore.d/$nodot
+  vcsh write-gitignore $nodot
+  vcsh $nodot add .gitignore.d/$nodot 
+
+  vcsh $nodot commit -m 'initial commit'
+  vcsh $nodot push
+
+  if [ -d ~/.config/mr ]; then
+    echo "[\$HOME/.config/vcsh/repo.d/$nodot.git]
+checkout = vcsh clone $clone_url $nodot
+" > ~/.config/mr/available.d/$nodot.vcsh
+    pushd ~/.config/mr/config.d
+    ln -s ../available.d/$nodot.vcsh
+    popd
+    vcsh mr add -f ${HOME}/.config/mr/available.d/$nodot.vcsh
+    vcsh mr add -f ${HOME}/.config/mr/config.d/$nodot.vcsh
+    vcsh mr commit -m "add $nodot to configuration"
+  fi
+  echo "vcsh push to push all changes"
+}
+
+function create-repo-github() {
+  if (( $# != 1 ))
+  then
+    echo "Usage: create-repo-github reponame"
+    return 1
+  fi
+  if [ ! -f ~/.private/github-user ]; then
+    echo '~/.private/github-user not found'
+    return 1
+  fi
+  if [ ! -f ~/.private/github-tok ]; then
+    echo '~/.private/github-tok not found'
+    return 1
+  fi
+
+  curl -s -u $(cat ~/.private/github-user):$(cat ~/.private/github-tok) https://api.github.com/user/repos -d "{\"name\":\"$1\"}"
+}
+
+function create-repo-bitbucket-private() {
+  if (( $# != 1 ))
+  then
+    echo "Usage: create-repo.private/bitbucket reponame"
+    return 1
+  fi
+  if [ ! -f ~/.private/bitbucket-user ]; then
+    echo '~/.private/bitbucket-user not found'
+    return 1
+  fi
+  if [ ! -f ~/.private/bitbucket-pass ]; then
+    echo '~/.private/bitbucket-pass not found'
+    return 1
+  fi
+  user=$(cat ~/.private/bitbucket-user)
+  curl -X POST -v -u $user:$(cat ~/.private/bitbucket-pass) -H "Content-Type: application/json" \
+    https://api.bitbucket.org/2.0/repositories/$user/$1           \
+  -d "{                                     \
+      \"owner\": \"$user\",                 \
+      \"repo_slug\": \"$1\",                 \
+      \"is_private\": \"true\",             \
+      \"fork_policy\": \"no_public_forks\", \
+      \"has_issues\": \"true\"              \
+      }"
+}
+
+function aws-defaultprofile() {
+  if (( $# != 1 ))
+  then
+    echo "AWS_DEFAULT_PROFILE=$AWS_DEFAULT_PROFILE"
+    return 0
+  fi
+
+  export AWS_DEFAULT_PROFILE=$1
+}
+
+function awsaccountnumber() {
+  aws sts get-caller-identity --output text --query 'Account'
+}
