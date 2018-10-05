@@ -153,3 +153,31 @@ function fix-iterm2-italics() {
   printf '\tsitm=\\E[3m, ritm=\\E[23m,\n' >> /tmp/xterm-256color.terminfo
   tic /tmp/xterm-256color.terminfo
 }
+
+########################################################################
+# Software install functions
+########################################################################
+function install-go() {
+  local arch="linux-amd64"
+  # YOLO: We'll parse the HTML of the download page
+  local url="$(curl -s https://golang.org/dl/ |grep 'class="download' |grep linux-amd64 |head -n1 |cut -d\" -f4)"
+  mkdir -p "$HOME"/.local
+  curl -s "$url" |tar -C "$HOME"/.local -xz
+}
+
+function install-aws-vault() {
+  local output=aws-vault
+
+  if $(command_exists go); then
+    go get github.com/99designs/aws-vault
+  else
+    # Go get is handy, but we don't actually need 120MB of stuff for the utility
+    local url=$(curl -s https://api.github.com/repos/99designs/aws-vault/releases \
+                |jq -r '.[0].assets[].browser_download_url' \
+                |grep linux-amd64)
+    output_bin="$HOME/.local/bin/$output"
+    curl -sL "$url" > $output_bin
+    chmod 755 $output_bin
+    hash $output
+  fi
+}
