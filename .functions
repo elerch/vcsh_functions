@@ -125,16 +125,6 @@ function create-repo-bitbucket-private() {
       }"
 }
 
-function aws-defaultprofile() {
-  if (( $# != 1 ))
-  then
-    echo "AWS_DEFAULT_PROFILE=$AWS_DEFAULT_PROFILE"
-    return 0
-  fi
-
-  export AWS_DEFAULT_PROFILE=$1
-}
-
 function awsaccountnumber() {
   aws sts get-caller-identity --output text --query 'Account'
 }
