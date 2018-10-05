@@ -144,6 +144,27 @@ function fix-iterm2-italics() {
   tic /tmp/xterm-256color.terminfo
 }
 
+function aws() {
+  # Allows use of aws-vault as if we were just executing aws
+  #
+  # This would be necessary if we are running as a shell script
+  # (note the cut ... -f 3 vs -f 2 in actual code below)
+  # shadowedcommand=$(for cmd in $(whereis -b aws |cut -d ' ' -f 3-); do \
+  #                   [ "aws" = "$(basename "$cmd")" ] && echo "$cmd" && break; done)
+  # Since we are a function, we can just take the top of the list:
+  shadowedcommand=$(for cmd in $(whereis -b aws |cut -d ' ' -f 2-); do \
+    [ "aws" = "$(basename "$cmd")" ] && echo "$cmd" && break; done)
+  if [ -z "${AWS_VAULT}" ]; then
+    if $(command_exists aws-vault); then
+      aws-vault exec "${AWS_DEFAULT_PROFILE:-default}" -- "${shadowedcommand}" "$@"
+    else
+      "${shadowedcommand}" "$@"
+    fi
+  else
+    "${shadowedcommand}" "$@"
+  fi
+}
+
 ########################################################################
 # Software install functions
 ########################################################################
