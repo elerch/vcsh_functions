@@ -6,8 +6,8 @@
 ####################################################################### 
 
 # Python virtualenvwrapper loads really slowly, so load it on demand.
-if [[ ( -n "$BASH_VERSION" && $(type -t workon) != function ) || \
-   ( -n "$ZSH_VERSION" && $(type -w workon) != "workon: function" ) ]]; then
+if [[ ( -n "$BASH_VERSION" && "$(type -t workon)" != function ) || \
+   ( -n "$ZSH_VERSION" && "$(type -w workon)" != "workon: function" ) ]]; then
   virtualenv_funcs=( workon deactivate mkvirtualenv )
 
   load_virtualenv() {
@@ -20,7 +20,7 @@ if [[ ( -n "$BASH_VERSION" && $(type -t workon) != function ) || \
     unset PYTHONPATH
 
     # Attempt to load virtualenvwrapper from its many possible sources...
-    _try_source() { [[ -f $1 ]] || return; source "$1"; return 0; }
+    _try_source() { [ -f "$1" ] || return; source "$1"; return 0; }
     _try_source /usr/local/bin/virtualenvwrapper.sh || \
     _try_source /etc/bash_completion.d/virtualenvwrapper || \
     _try_source /usr/bin/virtualenvwrapper.sh 
@@ -31,7 +31,7 @@ if [[ ( -n "$BASH_VERSION" && $(type -t workon) != function ) || \
     [[ -n $_pp ]] && export PYTHONPATH="$_pp"
 
     # Did loading work?
-    if [[ $status != 0 || $(type -t "$1") != function ]]; then
+    if [[ $status != 0 || "$(type -t "$1")" != function ]]; then
       echo "Error loading virtualenvwrapper, sorry" >&2
       return $status
     fi
@@ -45,77 +45,74 @@ if [[ ( -n "$BASH_VERSION" && $(type -t workon) != function ) || \
   done
 fi
 
-function create-dotfile-repo() {
-  if (( $# != 1 ))
-  then
+create_dotfile_repo() {
+  if [ $# != 1 ]; then
     echo "Usage: create-dotfile-repo dotfile"
     return 1
   fi
-  nodot=$(echo $1|cut -c 2-)
-  github_out=$(create-repo-github vcsh_$nodot)
-  ssh_url=$(echo $github_out | fgrep ssh_url | cut -f 2- -d : |cut -f 2 -d \")
-  clone_url=$(echo $github_out | fgrep clone_url | cut -f 2- -d : |cut -f 2 -d \")
-  vcsh clone $ssh_url $nodot
-  vcsh $nodot add -f $1
+  nodot=$(echo "$1"|cut -c 2-)
+  github_out="$(create-repo-github vcsh_"$nodot")"
+  ssh_url="$(echo "$github_out" | fgrep ssh_url | cut -f 2- -d : |cut -f 2 -d \")"
+  clone_url=$(echo "$github_out" | fgrep clone_url | cut -f 2- -d : |cut -f 2 -d \")
+  vcsh clone "$ssh_url" "$nodot"
+  vcsh "$nodot" add -f "$1"
 
   # Add .gitignore. See http://www.martin-burger.net/blog/unix-shell/manage-dotfiles-quickly-and-effortlessly/
-  vcsh write-gitignore $nodot
-  vcsh $nodot add -f .gitignore.d/$nodot
-  vcsh write-gitignore $nodot
-  vcsh $nodot add .gitignore.d/$nodot 
+  vcsh write-gitignore "$nodot"
+  vcsh "$nodot" add -f ".gitignore.d/$nodot"
+  vcsh write-gitignore "$nodot"
+  vcsh "$nodot" add .gitignore.d/"$nodot"
 
-  vcsh $nodot commit -m 'initial commit'
-  vcsh $nodot push
+  vcsh "$nodot" commit -m 'initial commit'
+  vcsh "$nodot" push
 
   if [ -d ~/.config/mr ]; then
     echo "[\$HOME/.config/vcsh/repo.d/$nodot.git]
 checkout = vcsh clone $clone_url $nodot
-" > ~/.config/mr/available.d/$nodot.vcsh
+" > ~/.config/mr/available.d/"$nodot.vcsh"
     pushd ~/.config/mr/config.d
-    ln -s ../available.d/$nodot.vcsh
+    ln -s ../available.d/"$nodot.vcsh"
     popd
-    vcsh mr add -f ${HOME}/.config/mr/available.d/$nodot.vcsh
-    vcsh mr add -f ${HOME}/.config/mr/config.d/$nodot.vcsh
+    vcsh mr add -f "${HOME}/.config/mr/available.d/$nodot.vcsh"
+    vcsh mr add -f "${HOME}/.config/mr/config.d/$nodot.vcsh"
     vcsh mr commit -m "add $nodot to configuration"
   fi
   echo "vcsh push to push all changes"
 }
 
-function create-repo-github() {
-  if (( $# != 1 ))
-  then
+create_repo_github() {
+  if [ $# != 1 ]; then
     echo "Usage: create-repo-github reponame"
     return 1
   fi
   if [ ! -f ~/.private/github-user ]; then
-    echo '~/.private/github-user not found'
+    echo "$HOME/.private/github-user not found"
     return 1
   fi
-  if [ ! -f ~/.private/github-tok ]; then
-    echo '~/.private/github-tok not found'
+  if [ ! -f "$HOME/.private/github-tok" ]; then
+    echo "$HOME/.private/github-tok not found"
     return 1
   fi
 
-  curl -s -u $(cat ~/.private/github-user):$(cat ~/.private/github-tok) https://api.github.com/user/repos -d "{\"name\":\"$1\"}"
+  curl -s -u "$(cat ~/.private/github-user):$(cat ~/.private/github-tok)" https://api.github.com/user/repos -d "{\"name\":\"$1\"}"
 }
 
-function create-repo-bitbucket-private() {
-  if (( $# != 1 ))
-  then
+create_repo_bitbucket_private() {
+  if [ $# != 1 ]; then
     echo "Usage: create-repo.private/bitbucket reponame"
     return 1
   fi
   if [ ! -f ~/.private/bitbucket-user ]; then
-    echo '~/.private/bitbucket-user not found'
+    echo "$HOME/.private/bitbucket-user not found"
     return 1
   fi
   if [ ! -f ~/.private/bitbucket-pass ]; then
-    echo '~/.private/bitbucket-pass not found'
+    echo "$HOME/.private/bitbucket-pass not found"
     return 1
   fi
   user=$(cat ~/.private/bitbucket-user)
-  curl -X POST -v -u $user:$(cat ~/.private/bitbucket-pass) -H "Content-Type: application/json" \
-    https://api.bitbucket.org/2.0/repositories/$user/$1           \
+  curl -X POST -v -u "$user:$(cat ~/.private/bitbucket-pass)" -H "Content-Type: application/json" \
+    "https://api.bitbucket.org/2.0/repositories/$user/$1"           \
   -d "{                                     \
       \"owner\": \"$user\",                 \
       \"repo_slug\": \"$1\",                 \
@@ -125,26 +122,26 @@ function create-repo-bitbucket-private() {
       }"
 }
 
-function awsaccountnumber() {
+aws_accountnumber() {
   aws sts get-caller-identity --output text --query 'Account'
 }
 
-function all-colors() {
+all_colors() {
   for code in $(seq -w 0 255); do for attr in 0 1; do printf "%s-%03s %bTest%b\n" "${attr}" "${code}" "\e[${attr};38;05;${code}m" "\e[m"; done; done | column -c $((COLUMNS*2))
 }
 
-function gen-password() {
-  LC_ALL=C tr -dc 'A-Za-z0-9!"#$%&'\''()*+,-./:;<=>?@[\]^_`{|}~' </dev/urandom | head -c ${1:-20} ; echo
+gen_password() {
+  LC_ALL=C tr -dc 'A-Za-z0-9!"#$%&'\''()*+,-./:;<=>?@[\]^_`{|}~' </dev/urandom | head -c "${1:-20}" ; echo
 }
 
-function fix-iterm2-italics() {
+fix_iterm2_italics() {
   # Source: http://www.eddieantonio.ca/blog/2015/04/16/iterm-italics/
   infocmp xterm-256color > /tmp/xterm-256color.terminfo
   printf '\tsitm=\\E[3m, ritm=\\E[23m,\n' >> /tmp/xterm-256color.terminfo
   tic /tmp/xterm-256color.terminfo
 }
 
-function aws() {
+aws() {
   # Allows use of aws-vault as if we were just executing aws
   #
   # This would be necessary if we are running as a shell script
@@ -155,7 +152,7 @@ function aws() {
   shadowedcommand=$(for cmd in $(whereis -b aws |cut -d ' ' -f 2-); do \
     [ "aws" = "$(basename "$cmd")" ] && echo "$cmd" && break; done)
   if [ -z "${AWS_VAULT}" ]; then
-    if $(command_exists aws-vault); then
+    if command_exists aws-vault; then
       aws-vault exec "${AWS_DEFAULT_PROFILE:-default}" -- "${shadowedcommand}" "$@"
     else
       "${shadowedcommand}" "$@"
