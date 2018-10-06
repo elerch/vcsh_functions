@@ -165,27 +165,104 @@ aws() {
 ########################################################################
 # Software install functions
 ########################################################################
-function install-go() {
+install_go() {
   local arch="linux-amd64"
   # YOLO: We'll parse the HTML of the download page
-  local url="$(curl -s https://golang.org/dl/ |grep 'class="download' |grep linux-amd64 |head -n1 |cut -d\" -f4)"
+  local url
+  url="$(curl -s https://golang.org/dl/ |grep 'class="download' |grep "$arch" |head -n1 |cut -d\" -f4)"
   mkdir -p "$HOME"/.local
   curl -s "$url" |tar -C "$HOME"/.local -xz
 }
 
-function install-aws-vault() {
+install_aws_vault() {
   local output=aws-vault
 
-  if $(command_exists go); then
+  if command_exists go; then
     go get github.com/99designs/aws-vault
   else
     # Go get is handy, but we don't actually need 120MB of stuff for the utility
-    local url=$(curl -s https://api.github.com/repos/99designs/aws-vault/releases \
-                |jq -r '.[0].assets[].browser_download_url' \
-                |grep linux-amd64)
+    local url
+    url=$(curl -s https://api.github.com/repos/99designs/aws-vault/releases \
+          |jq -r '.[0].assets[].browser_download_url' \
+          |grep linux-amd64)
     output_bin="$HOME/.local/bin/$output"
-    curl -sL "$url" > $output_bin
-    chmod 755 $output_bin
+    curl -sL "$url" > "$output_bin"
+    chmod 755 "$output_bin"
     hash $output
   fi
+}
+
+########################################################################
+# Docker containers
+########################################################################
+zoom() {
+  # Give display rights to the user if not already enabled
+  xhost | grep -q "SI:localuser:${USER}" || \
+    xhost +SI:localuser:"${USER}"
+    
+  # --device /dev/snd \
+
+  docker run  \
+    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    -e DISPLAY="unix$DISPLAY" \
+    -v /run/dbus/:/run/dbus/ \
+    -v /dev/shm:/dev/shm \
+    --device /dev/dri \
+    --device /dev/video0 \
+    --group-add "$(getent group audio | cut -d: -f3)" \
+    -e PULSE_SERVER="unix:${XDG_RUNTIME_DIR}/pulse/native" \
+    -v "${XDG_RUNTIME_DIR}/pulse/native:${XDG_RUNTIME_DIR}/pulse/native" \
+    --group-add video \
+    -u "$(id -u "$USER"):$(id -g "$USER")" \
+    --name zoom \
+    -d
+    --rm \
+    jess/zoom-us
+}
+
+create_secondary_pa_for_root() {
+  # This creates a socket in a 700 directory for pulseaudio. The socket itself
+  # has anonymous access, but as it's for audio the threat model is at least
+  # somewhat constrained.
+  if [ -z "$PULSE_SERVER_SECONDARY_SOCKET" ]; then
+    local tdir
+    tdir=$(mktemp -d "$XDG_RUNTIME_DIR/pa.XXXXXXX")
+    pacmd load-module module-native-protocol-unix auth-anonymous=1 socket="$tdir/pa.socket"
+    export PULSE_SERVER_SECONDARY_SOCKET="$tdir/pa.socket"
+  fi
+  echo "export PULSE_SERVER_SECONDARY_SOCKET=$PULSE_SERVER_SECONDARY_SOCKET"
+
+}
+# We only have a couple config files exposed to host, so we will run this
+# as root in the container
+workspaces() {
+  # Give display rights to the ROOT user if not already enabled
+  xhost | grep -q "SI:localuser:root" || \
+    xhost +SI:localuser:"root"
+
+  local image
+  image=${1:-elerch/workspaces:latest}
+  local appdatalocal
+  appdatalocal="$HOME/.docker/Amazon WorkSpaces"
+  mkdir -p "$appdatalocal"
+  local appdatacontainer
+  appdatacontainer="/root/.wine/drive_c/users/root/Local Settings/Application Data/Amazon Web Services/Amazon WorkSpaces"
+
+  local xopts
+  xopts=(-v /tmp/.X11-unix:/tmp/.X11-unix \
+               -e DISPLAY=unix${DISPLAY} \
+               --device /dev/dri)
+  eval "$(create_secondary_pa_for_root)"
+  local soundopts=(-e PULSE_SERVER="unix:$PULSE_SERVER_SECONDARY_SOCKET" \
+    -v "$PULSE_SERVER_SECONDARY_SOCKET:$PULSE_SERVER_SECONDARY_SOCKET" \
+    )
+  # local soundopts=(-e PULSE_SERVER="unix:${XDG_RUNTIME_DIR}/pulse/native" \
+  # -v "${XDG_RUNTIME_DIR}/pulse/native:${XDG_RUNTIME_DIR}/pulse/native" \
+  #   --group-add $(getent group audio | cut -d: -f3) )
+  #docker run -d --rm $xopts $soundopts \
+  docker run -d --rm "${xopts[@]}" "${soundopts[@]}" \
+    -e TZ="${TZ:-$(cat /etc/timezone)}" \
+    -v "$appdatalocal/registrationCache.json:$appdatacontainer/registrationCache.json" \
+    -v "$appdatalocal/profiles:$appdatacontainer/profiles" \
+    "$image"
 }
