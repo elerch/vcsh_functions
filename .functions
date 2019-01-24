@@ -165,13 +165,105 @@ aws() {
 ########################################################################
 # Software install functions
 ########################################################################
+arch() {
+  local ARCH=$(uname -m)
+  case $ARCH in
+    armv5*) ARCH="armv5";;
+    armv6*) ARCH="armv6";;
+    armv7*) ARCH="armv7";;
+    aarch64) ARCH="arm64";;
+    x86) ARCH="386";;
+    x86_64) ARCH="amd64";;
+    i686) ARCH="386";;
+    i386) ARCH="386";;
+  esac
+  echo $ARCH
+}
+
+os() {
+  echo "linux" # darwin for mac
+}
+
+download() {
+  if [ $# -ne 2 ]; then
+    echo "usage: download <url> <location>"
+    return 1
+  fi
+  echo Downloading "$1" to "$2"
+  if command_exists curl; then
+    curl -SsL "$1" -o "$2"
+  elif command_exists wget; then
+    wget -q -O "$2" "$1"
+  else
+    echo install wget or curl to use this
+    return 2
+  fi
+}
+
+checksum() {
+  if [ $# -ne 3 ]; then
+    echo "usage: checksum bits <file> <sum file>"
+    return 1
+  fi
+  local sum=$(openssl sha1 "-sha${1}" "${2}" | awk '{print $2}')
+  if [ "$sum" != "$(cat "${3}")" ]; then
+    echo "SHA sum of ${2} does not match the sum in file ${3}" >&2
+    return 2
+  fi
+  return 0
+}
+
+install_rust() {
+  curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path
+}
+
+install_musl_dev() {
+  pushd $HOME
+  git clone git://git.musl-libc.org/musl
+  cd musl
+  ./configure --prefix="$HOME/.local/musl" --exec-prefix="$HOME/.local/"
+  make && make install
+  cd ..
+  rm -rf musl
+  popd
+}
+
+install_helm() {
+  local release_tag=$(curl -s https://api.github.com/repos/helm/helm/releases |jq -r '[.[] | select(.prerelease == false)][0].tag_name')
+  local url="https://storage.googleapis.com/kubernetes-helm/helm-$release_tag-$(os)-$(arch).tar.gz"
+  local sum_url="https://storage.googleapis.com/kubernetes-helm/helm-$release_tag-$(os)-$(arch).tar.gz.sha256"
+  local tmp_root="$(mktemp -dt install-help-XXXXXX)"
+  download "$url" "${tmp_root}/helm.tgz"
+  download "$sum_url" "${tmp_root}/helm.tgz.sha256"
+  checksum 256 "${tmp_root}/helm.tgz" "${tmp_root}/helm.tgz.sha256" || return 1
+  tar xf "${tmp_root}/helm.tgz" -C "${tmp_root}"
+  local helm="${tmp_root}/$(os)-$(arch)/helm"
+  local tiller="${tmp_root}/$(os)-$(arch)/tiller"
+  mkdir -p "${HOME}/.local/bin"
+  mv "$helm" "$tiller" "${HOME}/.local/bin"
+  rm -rf "${tmp_root}"
+}
+
 install_go() {
-  local arch="linux-amd64"
+  local arch="$(os)-$(arch)"
   # YOLO: We'll parse the HTML of the download page
   local url
   url="$(curl -s https://golang.org/dl/ |grep 'class="download' |grep "$arch" |head -n1 |cut -d\" -f4)"
   mkdir -p "$HOME"/.local
   curl -s "$url" |tar -C "$HOME"/.local -xz
+}
+
+install_kubectl() {
+  local url="https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/$(os)/$(arch)/kubectl"
+  mkdir -p "$HOME"/.local/bin
+  download "$url" "$HOME"/.local/bin/kubectl
+  chmod 755 "$HOME"/.local/bin/kubectl
+}
+
+install_kubectl_aws_iam_auth() {
+  local url=$(curl -s https://api.github.com/repos/kubernetes-sigs/aws-iam-authenticator/releases/latest | grep 'browser_' | cut -d\" -f4 |grep $(os)_$(arch))
+  download "$url" "$HOME"/.local/bin/aws-iam-authenticator
+  chmod 755 "$HOME"/.local/bin/aws-iam-authenticator
 }
 
 install_aws_vault() {
@@ -184,9 +276,9 @@ install_aws_vault() {
     local url
     url=$(curl -s https://api.github.com/repos/99designs/aws-vault/releases \
           |jq -r '.[0].assets[].browser_download_url' \
-          |grep linux-amd64)
+          |grep $(os)-$(arch))
     output_bin="$HOME/.local/bin/$output"
-    curl -sL "$url" > "$output_bin"
+    download "$url" "$output_bin"
     chmod 755 "$output_bin"
     hash $output
   fi
@@ -199,7 +291,7 @@ zoom() {
   # Give display rights to the user if not already enabled
   xhost | grep -q "SI:localuser:${USER}" || \
     xhost +SI:localuser:"${USER}"
-    
+
   # --device /dev/snd \
 
   docker run  \
@@ -215,7 +307,7 @@ zoom() {
     --group-add video \
     -u "$(id -u "$USER"):$(id -g "$USER")" \
     --name zoom \
-    -d
+    -d \
     --rm \
     jess/zoom-us
 }
