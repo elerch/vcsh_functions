@@ -352,9 +352,36 @@ workspaces() {
   # -v "${XDG_RUNTIME_DIR}/pulse/native:${XDG_RUNTIME_DIR}/pulse/native" \
   #   --group-add $(getent group audio | cut -d: -f3) )
   #docker run -d --rm $xopts $soundopts \
-  docker run -d --rm "${xopts[@]}" "${soundopts[@]}" \
+  #
+  # Trying --net host for clipboard stability
+  docker run -d "${xopts[@]}" "${soundopts[@]}" \
+    --net host \
     -e TZ="${TZ:-$(cat /etc/timezone)}" \
     -v "$appdatalocal/registrationCache.json:$appdatacontainer/registrationCache.json" \
     -v "$appdatalocal/profiles:$appdatacontainer/profiles" \
     "$image"
+}
+
+libreoffice() {
+  # Give display rights to the user if not already enabled
+  xhost | grep -q "SI:localuser:${USER}" || \
+    xhost +SI:localuser:"${USER}"
+
+  docs="${1:-$HOME/}"
+
+  # Give display rights to the user if not already enabled
+  xhost | grep -q "SI:localuser:${USER}" || \
+    xhost +SI:localuser:"${USER}"
+
+   docker run --rm -d \
+          -v /etc/localtime:/etc/localtime:ro \
+          -v /etc/passwd:/etc/passwd:ro \
+          -v /tmp/.X11-unix:/tmp/.X11-unix \
+          -e DISPLAY=unix"$DISPLAY" \
+          -v "$docs":/home/user \
+          -u "$(id -u "$USER")":"$(id -g "$USER")" \
+          -e GDK_SCALE \
+          -e GDK_DPI_SCALE \
+          --name libreoffice \
+          elerch/libreoffice
 }
