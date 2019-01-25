@@ -385,3 +385,40 @@ libreoffice() {
           --name libreoffice \
           elerch/libreoffice
 }
+
+chrome() {
+  # anonymous by default. Other branch is "loggedin"
+  git -C "$HOME/.config/chrome" checkout -f "${1:-anonymous}" > /dev/null
+  git -C "$HOME/.config/chrome" clean -df >/dev/null
+
+  # Give display rights to the user if not already enabled
+  xhost | grep -q "SI:localuser:${USER}" || \
+    xhost +SI:localuser:"${USER}"
+
+  # We're giving 2GB by default. I tried lower values, but
+  # some of the normal Google properties I use suck memory
+  # like a pig. I'm looking at you, Google meetings...
+  docker run -it \
+    --net host \
+    --cpuset-cpus 2 \
+    --memory "${2:-"2048mb"}" \
+    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    -e DISPLAY=unix"$DISPLAY" \
+    -v "$HOME"/Downloads:/home/chrome/Downloads \
+    -v "$HOME"/.config/chrome/:/data \
+    -v /run/dbus/:/run/dbus/ \
+    -v /dev/shm:/dev/shm \
+    --security-opt seccomp="$HOME"/chrome.json \
+    --device /dev/snd \
+    --device /dev/dri \
+    --device /dev/video0 \
+    --group-add "$(getent group audio | cut -d: -f3)" \
+    -e PULSE_SERVER=unix:"${XDG_RUNTIME_DIR}"/pulse/native \
+    -v "${XDG_RUNTIME_DIR}"/pulse/native:"${XDG_RUNTIME_DIR}"/pulse/native \
+    --group-add video \
+    -v /dev/shm:/dev/shm \
+    -u "$(id -u "$USER")":"$(id -g "$USER")" \
+    --name chrome \
+    --rm \
+    jess/chrome
+}
