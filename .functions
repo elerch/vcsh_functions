@@ -6,32 +6,33 @@
 ####################################################################### 
 
 # Python virtualenvwrapper loads really slowly, so load it on demand.
-if [[ ( -n "$BASH_VERSION" && "$(type -t workon)" != function ) || \
-   ( -n "$ZSH_VERSION" && "$(type -w workon)" != "workon: function" ) ]]; then
-  virtualenv_funcs=( workon deactivate mkvirtualenv )
+if ! command -V workon >/dev/null 2>&1 || command -V workon | grep -vq function; then
+  virtualenv_funcs="workon deactivate mkvirtualenv"
 
   load_virtualenv() {
     # If these already exist, then virtualenvwrapper won't override them.
-    unset -f "${virtualenv_funcs[@]}"
+    # shellcheck disable=SC2086
+    unset -f $virtualenv_funcs
 
     # virtualenvwrapper doesn't load if PYTHONPATH is set, because the
     # virtualenv python doesn't have the right modules.
-    declare _pp="$PYTHONPATH"
+    _pp="$PYTHONPATH"
     unset PYTHONPATH
 
     # Attempt to load virtualenvwrapper from its many possible sources...
-    _try_source() { [ -f "$1" ] || return; source "$1"; return 0; }
+    # shellcheck source=/dev/null
+    _try_source() { [ -f "$1" ] || return; . "$1"; return 0; }
     _try_source /usr/local/bin/virtualenvwrapper.sh || \
     _try_source /etc/bash_completion.d/virtualenvwrapper || \
-    _try_source /usr/bin/virtualenvwrapper.sh 
-    declare status=$?
+    _try_source /usr/bin/virtualenvwrapper.sh
+    status=$?
     unset -f _try_source
 
     # Restore PYTHONPATH
-    [[ -n $_pp ]] && export PYTHONPATH="$_pp"
+    [ -n "$_pp" ] && export PYTHONPATH="$_pp"
 
     # Did loading work?
-    if [[ $status != 0 || "$(type -t "$1")" != function ]]; then
+    if [ $status != 0 ] || command -V "$1" | grep -vq function; then
       echo "Error loading virtualenvwrapper, sorry" >&2
       return $status
     fi
@@ -40,7 +41,7 @@ if [[ ( -n "$BASH_VERSION" && "$(type -t workon)" != function ) || \
     "$@"
   }
 
-  for v in "${virtualenv_funcs[@]}"; do
+  echo "virtualenv_funcs" | tr ' ' '\n' | while read -r v; do
     eval "$v() { load_virtualenv $v \"\$@\"; }"
   done
 fi
@@ -70,14 +71,14 @@ create_dotfile_repo() {
     echo "[\$HOME/.config/vcsh/repo.d/$nodot.git]
 checkout = vcsh clone $clone_url $nodot
 " > ~/.config/mr/available.d/"$nodot.vcsh"
-    pushd ~/.config/mr/config.d
-    ln -s ../available.d/"$nodot.vcsh"
-    popd
+    ( cd ~/.config/mr/config.d && \
+      ln -s ../available.d/"$nodot.vcsh" )
     vcsh mr add -f "${HOME}/.config/mr/available.d/$nodot.vcsh"
     vcsh mr add -f "${HOME}/.config/mr/config.d/$nodot.vcsh"
     vcsh mr commit -m "add $nodot to configuration"
   fi
   echo "vcsh push to push all changes"
+  unset nodot github_out ssh_url clone_url
 }
 
 create_repo_github() {
@@ -160,24 +161,26 @@ aws() {
   else
     "${shadowedcommand}" "$@"
   fi
+  unset shadowedcommand
 }
 
 ########################################################################
 # Software install functions
 ########################################################################
 arch() {
-  local ARCH=$(uname -m)
-  case $ARCH in
-    armv5*) ARCH="armv5";;
-    armv6*) ARCH="armv6";;
-    armv7*) ARCH="armv7";;
-    aarch64) ARCH="arm64";;
-    x86) ARCH="386";;
-    x86_64) ARCH="amd64";;
-    i686) ARCH="386";;
-    i386) ARCH="386";;
+  arch=$(uname -m)
+  case $arch in
+    armv5*) arch="armv5";;
+    armv6*) arch="armv6";;
+    armv7*) arch="armv7";;
+    aarch64) arch="arm64";;
+    x86) arch="386";;
+    x86_64) arch="amd64";;
+    i686) arch="386";;
+    i386) arch="386";;
   esac
-  echo $ARCH
+  echo $arch
+  unset arch
 }
 
 os() {
@@ -205,11 +208,13 @@ checksum() {
     echo "usage: checksum bits <file> <sum file>"
     return 1
   fi
-  local sum=$(openssl sha1 "-sha${1}" "${2}" | awk '{print $2}')
+  sum=$(openssl sha1 "-sha${1}" "${2}" | awk '{print $2}')
   if [ "$sum" != "$(cat "${3}")" ]; then
+    unset sum
     echo "SHA sum of ${2} does not match the sum in file ${3}" >&2
     return 2
   fi
+  unset sum
   return 0
 }
 
@@ -218,70 +223,76 @@ install_rust() {
 }
 
 install_musl_dev() {
-  pushd $HOME
-  git clone git://git.musl-libc.org/musl
-  cd musl
-  ./configure --prefix="$HOME/.local/musl" --exec-prefix="$HOME/.local/"
-  make && make install
-  cd ..
-  rm -rf musl
-  popd
+  ( 
+    cd "$HOME" || exit 1
+    git clone git://git.musl-libc.org/musl
+    cd musl || exit 1
+    ./configure --prefix="$HOME/.local/musl" --exec-prefix="$HOME/.local/"
+    make && make install
+    cd ..
+    rm -rf musl
+  )
 }
 
 install_helm() {
-  local release_tag=$(curl -s https://api.github.com/repos/helm/helm/releases |jq -r '[.[] | select(.prerelease == false)][0].tag_name')
-  local url="https://storage.googleapis.com/kubernetes-helm/helm-$release_tag-$(os)-$(arch).tar.gz"
-  local sum_url="https://storage.googleapis.com/kubernetes-helm/helm-$release_tag-$(os)-$(arch).tar.gz.sha256"
-  local tmp_root="$(mktemp -dt install-help-XXXXXX)"
+  release_tag=$(curl -s https://api.github.com/repos/helm/helm/releases |jq -r '[.[] | select(.prerelease == false)][0].tag_name')
+  url="https://storage.googleapis.com/kubernetes-helm/helm-$release_tag-$(os)-$(arch).tar.gz"
+  sum_url="https://storage.googleapis.com/kubernetes-helm/helm-$release_tag-$(os)-$(arch).tar.gz.sha256"
+  tmp_root="$(mktemp -dt install-help-XXXXXX)"
   download "$url" "${tmp_root}/helm.tgz"
   download "$sum_url" "${tmp_root}/helm.tgz.sha256"
   checksum 256 "${tmp_root}/helm.tgz" "${tmp_root}/helm.tgz.sha256" || return 1
   tar xf "${tmp_root}/helm.tgz" -C "${tmp_root}"
-  local helm="${tmp_root}/$(os)-$(arch)/helm"
-  local tiller="${tmp_root}/$(os)-$(arch)/tiller"
+  helm="${tmp_root}/$(os)-$(arch)/helm"
+  tiller="${tmp_root}/$(os)-$(arch)/tiller"
   mkdir -p "${HOME}/.local/bin"
   mv "$helm" "$tiller" "${HOME}/.local/bin"
   rm -rf "${tmp_root}"
+  unset release_tag url sum_url tmp_root helm tiller
 }
 
 install_go() {
-  local arch="$(os)-$(arch)"
+  arch="$(os)-$(arch)"
   # YOLO: We'll parse the HTML of the download page
-  local url
   url="$(curl -s https://golang.org/dl/ |grep 'class="download' |grep "$arch" |head -n1 |cut -d\" -f4)"
   mkdir -p "$HOME"/.local
   curl -s "$url" |tar -C "$HOME"/.local -xz
+  unset arch url
 }
 
 install_kubectl() {
-  local url="https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/$(os)/$(arch)/kubectl"
+  url="https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/$(os)/$(arch)/kubectl"
   mkdir -p "$HOME"/.local/bin
   download "$url" "$HOME"/.local/bin/kubectl
   chmod 755 "$HOME"/.local/bin/kubectl
+  unset url
 }
 
 install_kubectl_aws_iam_auth() {
-  local url=$(curl -s https://api.github.com/repos/kubernetes-sigs/aws-iam-authenticator/releases/latest | grep 'browser_' | cut -d\" -f4 |grep $(os)_$(arch))
+  url="$(curl -s https://api.github.com/repos/kubernetes-sigs/aws-iam-authenticator/releases/latest | \
+           grep 'browser_' | \
+           cut -d\" -f4 |grep "$(os)"_"$(arch)")"
   download "$url" "$HOME"/.local/bin/aws-iam-authenticator
   chmod 755 "$HOME"/.local/bin/aws-iam-authenticator
+  unset url
 }
 
 install_aws_vault() {
-  local output=aws-vault
+  output=aws-vault
 
   if command_exists go; then
     go get github.com/99designs/aws-vault
   else
     # Go get is handy, but we don't actually need 120MB of stuff for the utility
-    local url
-    url=$(curl -s https://api.github.com/repos/99designs/aws-vault/releases \
+    url="$(curl -s https://api.github.com/repos/99designs/aws-vault/releases \
           |jq -r '.[0].assets[].browser_download_url' \
-          |grep $(os)-$(arch))
+          |grep "$(os)"-"$(arch)")"
     output_bin="$HOME/.local/bin/$output"
     download "$url" "$output_bin"
     chmod 755 "$output_bin"
     hash $output
   fi
+  unset output url output_bin
 }
 
 ########################################################################
@@ -340,10 +351,10 @@ create_secondary_pa_for_root() {
   # has anonymous access, but as it's for audio the threat model is at least
   # somewhat constrained.
   if [ -z "$PULSE_SERVER_SECONDARY_SOCKET" ]; then
-    local tdir
     tdir=$(mktemp -d "$XDG_RUNTIME_DIR/pa.XXXXXXX")
     pacmd load-module module-native-protocol-unix auth-anonymous=1 socket="$tdir/pa.socket"
     export PULSE_SERVER_SECONDARY_SOCKET="$tdir/pa.socket"
+    unset tdir
   fi
   echo "export PULSE_SERVER_SECONDARY_SOCKET=$PULSE_SERVER_SECONDARY_SOCKET"
 
@@ -355,20 +366,16 @@ workspaces() {
   xhost | grep -q "SI:localuser:root" || \
     xhost +SI:localuser:"root"
 
-  local image
   image=${1:-elerch/workspaces:latest}
-  local appdatalocal
   appdatalocal="$HOME/.docker/Amazon WorkSpaces"
   mkdir -p "$appdatalocal"
-  local appdatacontainer
   appdatacontainer="/root/.wine/drive_c/users/root/Local Settings/Application Data/Amazon Web Services/Amazon WorkSpaces"
 
-  local xopts
   xopts=(-v /tmp/.X11-unix:/tmp/.X11-unix \
                -e DISPLAY=unix${DISPLAY} \
                --device /dev/dri)
   eval "$(create_secondary_pa_for_root)"
-  local soundopts=(-e PULSE_SERVER="unix:$PULSE_SERVER_SECONDARY_SOCKET" \
+  soundopts=(-e PULSE_SERVER="unix:$PULSE_SERVER_SECONDARY_SOCKET" \
     -v "$PULSE_SERVER_SECONDARY_SOCKET:$PULSE_SERVER_SECONDARY_SOCKET" \
     )
   # local soundopts=(-e PULSE_SERVER="unix:${XDG_RUNTIME_DIR}/pulse/native" \
@@ -383,6 +390,8 @@ workspaces() {
     -v "$appdatalocal/registrationCache.json:$appdatacontainer/registrationCache.json" \
     -v "$appdatalocal/profiles:$appdatacontainer/profiles" \
     "$image"
+
+  unset image appdatalocal appdatacontainer xopts soundopts
 }
 
 libreoffice() {
@@ -446,15 +455,15 @@ chrome() {
     jess/chrome
 }
 
-docker-search-tags() {
+docker_search_tags() {
   [ ${#} -ne 1 ] && echo "docker-search-tags <image>" >&2 && return 1
   i=0
 
   # This ends up with some jq error output at the end, but whatever - YOLO
-  while [ $? == 0 ]
+  while [ $? = 0 ]
   do
      i=$((i+1))
-     curl https://registry.hub.docker.com/v2/repositories/library/${1}/tags/?page=$i 2>/dev/null|jq -r '."results"[]["name"]'
+     curl https://registry.hub.docker.com/v2/repositories/library/"${1}"/tags/?page=$i 2>/dev/null|jq -r '."results"[]["name"]'
   done
 }
 
@@ -462,32 +471,33 @@ rdesktop () {
   xhost | grep -q "SI:localuser:${USER}" || xhost +SI:localuser:"${USER}"
   echo "Container attached to TTY. Ctrl-P + Ctrl-Q to detach"
   # would be nice to name the container after the host connection
-  docker run -it -e DISPLAY=unix$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix -v $HOME:$HOME -u $(id -u):$(id -g) jess/rdesktop -u ${USER} $*
+  docker run -it -e DISPLAY=unix"$DISPLAY" -v /tmp/.X11-unix:/tmp/.X11-unix -v "$HOME":"$HOME" -u "$(id -u)":"$(id -g)" jess/rdesktop -u "${USER}" "$@"
 }
 
-my-ipv4 () {
+my_ipv4 () {
   curl -s -4 ifconfig.co
 }
 
-authorize-security-group-ingress () {
-  [ ${#} -ne 3 ] && echo "revoke-security-group-ingress <groupname> <protocol> <port>" >&2 && return 1
+authorize_security_group_ingress () {
+  [ ${#} -ne 3 ] && echo "authorize_security_group_ingress <groupname> <protocol> <port>" >&2 && return 1
   echo "Revoking any previously authorized ingress for this host"
-  revoke-security-group-ingress $1 $2 $3
+  revoke_security_group_ingress "$1" "$2" "$3"
   echo "Adding authorization for host"
-  aws ec2 authorize-security-group-ingress --group-name $1 --ip-permissions \
-    IpProtocol=$2,FromPort=$3,ToPort=$3,IpRanges="[{CidrIp=$(curl -s -4 ifconfig.co)/32,Description=Host:$HOST}]"
+  aws ec2 authorize_security_group_ingress --group-name "$1" --ip-permissions \
+    "IpProtocol=$2,FromPort=$3,ToPort=$3,IpRanges=[{CidrIp=$(curl -s -4 ifconfig.co)/32,Description=Host:$HOST}]"
 }
 
-revoke-security-group-ingress () {
-  [ ${#} -ne 3 ] && echo "revoke-security-group-ingress <groupname> <protocol> <port>" >&2 && return 1
+revoke_security_group_ingress () {
+  [ ${#} -ne 3 ] && echo "revoke_security_group_ingress <groupname> <protocol> <port>" >&2 && return 1
   # looking for security group description in the format Host:$HOST
-  local ip=$(aws ec2 describe-security-groups --group-name $1 | \
-             jq -r ".SecurityGroups[0].IpPermissions[0].IpRanges[] | select(.Description==\"Host:$HOST\") | .CidrIp")
+  ip="$(aws ec2 describe-security-groups --group-name "$1" | \
+           jq -r ".SecurityGroups[0].IpPermissions[0].IpRanges[] | select(.Description==\"Host:$HOST\") | .CidrIp")"
   [ -z "$ip" ] && echo "Ip not found for host on SG $1" && return 0
-  aws ec2 revoke-security-group-ingress --group-name $1 --protocol $2 --port $3 --cidr $ip
+  aws ec2 revoke_security_group_ingress --group-name "$1" --protocol "$2" --port "$3" --cidr "$ip"
+  unset ip
 }
 
-install-language-servers () {
+install_language_servers () {
   # Javascript is a real PITA
   # using nvm, npm install -g javascript-typescript-langserver
   # Rust
