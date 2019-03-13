@@ -445,3 +445,64 @@ chrome() {
     --rm \
     jess/chrome
 }
+
+docker-search-tags() {
+  [ ${#} -ne 1 ] && echo "docker-search-tags <image>" >&2 && return 1
+  i=0
+
+  # This ends up with some jq error output at the end, but whatever - YOLO
+  while [ $? == 0 ]
+  do
+     i=$((i+1))
+     curl https://registry.hub.docker.com/v2/repositories/library/${1}/tags/?page=$i 2>/dev/null|jq -r '."results"[]["name"]'
+  done
+}
+
+rdesktop () {
+  xhost | grep -q "SI:localuser:${USER}" || xhost +SI:localuser:"${USER}"
+  echo "Container attached to TTY. Ctrl-P + Ctrl-Q to detach"
+  # would be nice to name the container after the host connection
+  docker run -it -e DISPLAY=unix$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix -v $HOME:$HOME -u $(id -u):$(id -g) jess/rdesktop -u ${USER} $*
+}
+
+my-ipv4 () {
+  curl -s -4 ifconfig.co
+}
+
+authorize-security-group-ingress () {
+  [ ${#} -ne 3 ] && echo "revoke-security-group-ingress <groupname> <protocol> <port>" >&2 && return 1
+  echo "Revoking any previously authorized ingress for this host"
+  revoke-security-group-ingress $1 $2 $3
+  echo "Adding authorization for host"
+  aws ec2 authorize-security-group-ingress --group-name $1 --ip-permissions \
+    IpProtocol=$2,FromPort=$3,ToPort=$3,IpRanges="[{CidrIp=$(curl -s -4 ifconfig.co)/32,Description=Host:$HOST}]"
+}
+
+revoke-security-group-ingress () {
+  [ ${#} -ne 3 ] && echo "revoke-security-group-ingress <groupname> <protocol> <port>" >&2 && return 1
+  # looking for security group description in the format Host:$HOST
+  local ip=$(aws ec2 describe-security-groups --group-name $1 | \
+             jq -r ".SecurityGroups[0].IpPermissions[0].IpRanges[] | select(.Description==\"Host:$HOST\") | .CidrIp")
+  [ -z "$ip" ] && echo "Ip not found for host on SG $1" && return 0
+  aws ec2 revoke-security-group-ingress --group-name $1 --protocol $2 --port $3 --cidr $ip
+}
+
+install-language-servers () {
+  # Javascript is a real PITA
+  # using nvm, npm install -g javascript-typescript-langserver
+  # Rust
+  command_exists rustup && \
+    echo 'installing Rust rls' && \
+    rustup update && \
+    rustup component add rls rust-analysis rust-src
+
+  # Python
+  command_exists pip && \
+    echo 'installing python-language-server (pyls)' && \
+    pip install --user python-language-server
+
+  # Go
+  command_exists go && \
+    echo 'installing go-language-server' && \
+    go get -u github.com/saibing/bingo
+}
