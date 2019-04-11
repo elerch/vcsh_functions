@@ -520,3 +520,28 @@ install_language_servers () {
     echo 'installing go-language-server' && \
     go get -u github.com/saibing/bingo
 }
+
+set_env_from_secret () {
+  # Need a subshell so we don't whack environment variables
+  (
+    secretid="${1:-S3ReadCreds}"
+    key=''
+    for env in $(aws secretsmanager get-secret-value --secret-id "$secretid" \
+                     --query 'SecretString' \
+                     --output text |jq . |grep -v -e '^[\{\}]'); do
+      if [ -z "$key" ]; then
+        key="$(echo "$env"|cut -d\" -f2)"
+      else
+        value="$(echo "$env"|cut -d\" -f2)"
+        eval "export $key=$value"
+        key=''
+      fi
+    done
+    unset AWS_SESSION_TOKEN AWS_SECURITY_TOKEN
+    if [ ! -z "$AWS_VAULT" ]; then
+      export AWS_VAULT="${AWS_VAULT}($secretid)"
+    fi
+    unset key value secretid
+    eval "$SHELL"
+  )
+}
