@@ -52,7 +52,11 @@ create_dotfile_repo() {
     return 1
   fi
   nodot=$(echo "$1"|cut -c 2-)
-  github_out="$(create-repo-github vcsh_"$nodot")"
+  github_out="$(create_repo_github vcsh_"$nodot")"
+  if [ $? -ne 0 ]; then
+    echo "Could not create github repo"
+    return 1
+  fi
   ssh_url="$(echo "$github_out" | fgrep ssh_url | cut -f 2- -d : |cut -f 2 -d \")"
   clone_url=$(echo "$github_out" | fgrep clone_url | cut -f 2- -d : |cut -f 2 -d \")
   vcsh clone "$ssh_url" "$nodot"
@@ -83,7 +87,7 @@ checkout = vcsh clone $clone_url $nodot
 
 create_repo_github() {
   if [ $# != 1 ]; then
-    echo "Usage: create-repo-github reponame"
+    echo "Usage: create_repo_github reponame"
     return 1
   fi
   if [ ! -f ~/.private/github-user ]; then
