@@ -98,7 +98,7 @@ create_repo_github() {
     return 1
   fi
 
-  curl -s -u "$(cat ~/.private/github-user):$(cat ~/.private/github-tok)" https://api.github.com/user/repos -d "{\"name\":\"$1\"}"
+  curl -f -s -u "$(cat ~/.private/github-user):$(cat ~/.private/github-tok)" https://api.github.com/user/repos -d "{\"name\":\"$1\"}"
 }
 
 create_repo_bitbucket_private() {
