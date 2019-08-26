@@ -101,31 +101,6 @@ create_repo_github() {
   curl -f -s -u "$(cat ~/.private/github-user):$(cat ~/.private/github-tok)" https://api.github.com/user/repos -d "{\"name\":\"$1\"}"
 }
 
-create_repo_bitbucket_private() {
-  if [ $# != 1 ]; then
-    echo "Usage: create-repo.private/bitbucket reponame"
-    return 1
-  fi
-  if [ ! -f ~/.private/bitbucket-user ]; then
-    echo "$HOME/.private/bitbucket-user not found"
-    return 1
-  fi
-  if [ ! -f ~/.private/bitbucket-pass ]; then
-    echo "$HOME/.private/bitbucket-pass not found"
-    return 1
-  fi
-  user=$(cat ~/.private/bitbucket-user)
-  curl -X POST -v -u "$user:$(cat ~/.private/bitbucket-pass)" -H "Content-Type: application/json" \
-    "https://api.bitbucket.org/2.0/repositories/$user/$1"           \
-  -d "{                                     \
-      \"owner\": \"$user\",                 \
-      \"repo_slug\": \"$1\",                 \
-      \"is_private\": \"true\",             \
-      \"fork_policy\": \"no_public_forks\", \
-      \"has_issues\": \"true\"              \
-      }"
-}
-
 aws_accountnumber() {
   aws sts get-caller-identity --output text --query 'Account'
 }
