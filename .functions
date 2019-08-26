@@ -20,7 +20,6 @@ if ! command -V workon >/dev/null 2>&1 || command -V workon | grep -vq function;
     unset PYTHONPATH
 
     # Attempt to load virtualenvwrapper from its many possible sources...
-    # shellcheck source=/dev/null
     _try_source() { [ -f "$1" ] || return; . "$1"; return 0; }
     _try_source /usr/local/bin/virtualenvwrapper.sh || \
     _try_source /etc/bash_completion.d/virtualenvwrapper || \
@@ -370,32 +369,39 @@ workspaces() {
   xhost | grep -q "SI:localuser:root" || \
     xhost +SI:localuser:"root"
 
+  eval "$(create_secondary_pa_for_root)"
+
   image=${1:-elerch/workspaces:latest}
   appdatalocal="$HOME/.docker/Amazon WorkSpaces"
   mkdir -p "$appdatalocal"
   appdatacontainer="/root/.wine/drive_c/users/root/Local Settings/Application Data/Amazon Web Services/Amazon WorkSpaces"
 
-  xopts=(-v /tmp/.X11-unix:/tmp/.X11-unix \
-               -e DISPLAY=unix${DISPLAY} \
-               --device /dev/dri)
-  eval "$(create_secondary_pa_for_root)"
-  soundopts=(-e PULSE_SERVER="unix:$PULSE_SERVER_SECONDARY_SOCKET" \
-    -v "$PULSE_SERVER_SECONDARY_SOCKET:$PULSE_SERVER_SECONDARY_SOCKET" \
-    )
-  # local soundopts=(-e PULSE_SERVER="unix:${XDG_RUNTIME_DIR}/pulse/native" \
-  # -v "${XDG_RUNTIME_DIR}/pulse/native:${XDG_RUNTIME_DIR}/pulse/native" \
-  #   --group-add $(getent group audio | cut -d: -f3) )
-  #docker run -d --rm $xopts $soundopts \
-  #
-  # Trying --net host for clipboard stability
-  docker run -d "${xopts[@]}" "${soundopts[@]}" \
-    --net host \
-    -e TZ="${TZ:-$(cat /etc/timezone)}" \
-    -v "$appdatalocal/registrationCache.json:$appdatacontainer/registrationCache.json" \
-    -v "$appdatalocal/profiles:$appdatacontainer/profiles" \
-    "$image"
+  xopts="-v /tmp/.X11-unix:/tmp/.X11-unix
+               -e DISPLAY=unix${DISPLAY}
+               --device /dev/dri"
+  soundopts="-e PULSE_SERVER=unix:$PULSE_SERVER_SECONDARY_SOCKET
+    -v $PULSE_SERVER_SECONDARY_SOCKET:$PULSE_SERVER_SECONDARY_SOCKET"
 
-  unset image appdatalocal appdatacontainer xopts soundopts
+  otheropts="-d
+    --net host
+    -e TZ=${TZ:-$(cat /etc/timezone)}"
+
+  set -- # Clear our args
+
+  # The spaces in these paths are an issue, so we'll special case that here
+  set --  -v "$appdatalocal/registrationCache.json:$appdatacontainer/registrationCache.json" \
+    -v "$appdatalocal/profiles:$appdatacontainer/profiles"
+  printf "%s\n%s\n%s\n%s\n" "${xopts}" "${soundopts}" "${otheropts}" "$image" \
+    | while read -r line; do
+    # We want parameter expansion and word splitting
+    # Useless echo (2116) is just wrong. This won't work without that
+    # shellcheck disable=2086,2116
+    for word in $(echo $line); do
+      set -- "$@" "$word"
+    done
+  done
+  unset image appdatalocal appdatacontainer xopts soundopts otheropts
+  docker run "$@"
 }
 
 libreoffice() {
