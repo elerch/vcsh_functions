@@ -48,17 +48,31 @@ fi
 create_dotfile_repo() {
   if [ $# != 1 ]; then
     echo "Usage: create-dotfile-repo dotfile"
+    echo "dotfile should be the actual file name (with the . character)"
     return 1
   fi
   nodot=$(echo "$1"|cut -c 2-)
   github_out="$(create_repo_github vcsh_"$nodot")"
-  if [ $? -ne 0 ]; then
-    echo "Could not create github repo"
+  rc=$?
+  if [ $rc -ne 0 ]; then
+    echo "Error from creation: checking to see if repo exists" >&2
+    github_out=$(curl -f -s "https://api.github.com/repos/$(cat $HOME/.private/github-user)/vcsh_${nodot}")
+    rc=$?
+    if [ $rc -eq 0 ]; then
+      echo "WARNING: Repo exists, and this may be in a bad state" >&2
+    fi
+  fi
+  if [ $rc -ne 0 ]; then
+    echo "Could not create github repo" >&2
     return 1
   fi
   ssh_url="$(echo "$github_out" | fgrep ssh_url | cut -f 2- -d : |cut -f 2 -d \")"
   clone_url=$(echo "$github_out" | fgrep clone_url | cut -f 2- -d : |cut -f 2 -d \")
   vcsh clone "$ssh_url" "$nodot"
+  if [ $? -ne 0 ]; then
+    echo "Error cloning $ssh_url to $nodot" >&3
+    return 1
+  fi
   vcsh "$nodot" add -f "$1"
 
   # Add .gitignore. See http://www.martin-burger.net/blog/unix-shell/manage-dotfiles-quickly-and-effortlessly/
@@ -81,7 +95,7 @@ checkout = vcsh clone $clone_url $nodot
     vcsh mr commit -m "add $nodot to configuration"
   fi
   echo "vcsh push to push all changes"
-  unset nodot github_out ssh_url clone_url
+  unset nodot github_out ssh_url clone_url rc
 }
 
 create_repo_github() {
