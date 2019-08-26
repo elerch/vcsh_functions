@@ -187,7 +187,7 @@ arch() {
 }
 
 os() {
-  echo "linux" # darwin for mac
+  uname -s | tr '[:upper:]' '[:lower:]' # "linux"/"darwin" (mac)
 }
 
 download() {
