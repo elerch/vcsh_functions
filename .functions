@@ -466,11 +466,89 @@ docker_search_tags() {
   done
 }
 
+screen_geometry() {
+  percentage=80 # 80% (TODO: allow this to be passed on cmdline
+
+  currentdisplays=$(xrandr |grep -e ' connected\|\*')
+  # Value should look like this:
+  #
+  # eDP-1 connected 2560x1600+5120+0 (normal left inverted right x axis y axis) 286mm x 179mm
+  #    2560x1600     59.97*+
+  # DP-1 connected primary 2560x1440+2560+0 (normal left inverted right x axis y axis) 597mm x 336mm
+  #    2560x1440     59.95*+
+  # DP-2 connected 2560x1440+0+0 (normal left inverted right x axis y axis) 597mm x 336mm
+  #    2560x1440     59.95*+
+  primarydisplay=$(echo "$currentdisplays"|grep primary|awk '{print $1}')
+  selectedisplay=$primarydisplay
+  if [ ! -z "$1" ]; then
+    if [ "$1" != "primary" ]; then
+      selectedisplay="$1"
+    fi
+  else
+    # User hasn't selected anything. Read fron stdin
+    echo "Current displays:"
+    echo "$currentdisplays"
+    printf "Choose the display you'd like (%s): " "$selectedisplay"
+    read -r selectedisplay
+    [ -z "$selectedisplay" ] && selectedisplay=$primarydisplay
+  fi
+  if ! echo "$currentdisplays"|grep -q -e "^$selectedisplay"; then
+    echo "Could not find display $selectedisplay" >&2
+    return 1
+  fi
+  # Grab geometry for selected display
+  geometry=$(echo "$currentdisplays"|grep -A 1 -e "^$selectedisplay"|tail -1|awk '{print $1}')
+  # Should look like this: 2560x1600. I'm sure we can do this with a read and IFS thing,
+  # but I won't bother here. Slower but clearer...
+  width=$(echo "$geometry"|cut -dx -f1)
+  height=$(echo "$geometry"|cut -dx -f2)
+  targetwidth=$(echo $((width * percentage / 100))|cut -d. -f1)
+  targetheight=$(echo $((height * percentage / 100))|cut -d. -f1)
+  echo "${targetwidth}x${targetheight}"
+}
+
+focused_screen() {
+  # ok - this is a huge leap. xwininfo will give (at least on my machine)
+  # window manager information that says "displayed on desktop n". I suspect
+  # this is specific to i3wm/not portable/etc.
+  #
+  # Further, I'm going to (probably incorrectly) assume that the 0-based numbering
+  # corresponds to the ordering of the connected output that returns from
+  # xrandr with no options. I don't see a tool for otherwise connecting "desktop number"
+  # to "output", though there's probably something in i3wm that I'm unaware of
+  # desktopnumber=$(xwininfo -wm -id "$(xdpyinfo |grep focus |awk '{print $3}'|cut -d, -f1)" \
+  #                 |grep Displayed \
+  #                 |awk '{print $4}')
+
+
+  # new plan, party people. Use xdpyinfo to get the window id of whatever has focus
+  # from there, we will assume we're running i3 (DESKTOP_STARTUP_ID should start with "i3"
+  # otherwise, we'll need a new plan. In reality, this was always assumed anyway,
+  # just with a brittle tie between things
+  if ! env|grep -q 'DESKTOP_STARTUP_ID=i3'; then
+    echo Currently this function supports i3wm only >&2
+    exit 1
+  fi
+  focusedwindowid=$(xdpyinfo |grep focus |awk '{print $3}'|cut -d, -f1)
+  i3-msg -t get_tree |jq "
+def flat:
+  { output: (if (.window == $(printf '%d' "$focusedwindowid")) then (.output) else (.nodes[] |flat) end)};
+
+.nodes[] | flat" | grep -v -e '[{}]'|awk '{print $2}' |cut -d\" -f2
+}
+
 rdesktop () {
   xhost | grep -q "SI:localuser:${USER}" || xhost +SI:localuser:"${USER}"
+  geometry=""
+  if [ $# -eq 1 ]; then
+    # establish geometry based on 80% of current screen
+    geometry="-g $(screen_geometry "$(focused_screen)")"
+  fi
   echo "Container attached to TTY. Ctrl-P + Ctrl-Q to detach"
   # would be nice to name the container after the host connection
-  docker run -it -e DISPLAY=unix"$DISPLAY" -v /tmp/.X11-unix:/tmp/.X11-unix -v "$HOME":"$HOME" -u "$(id -u)":"$(id -g)" jess/rdesktop -u "${USER}" "$@"
+  # shellcheck disable=SC2086
+  docker run -it -e DISPLAY=unix"$DISPLAY" -v /tmp/.X11-unix:/tmp/.X11-unix -v "$HOME":"$HOME" -u "$(id -u)":"$(id -g)" jess/rdesktop -u "${USER}" $geometry "$@"
+  unset geometry
 }
 
 my_ipv4 () {
