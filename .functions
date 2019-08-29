@@ -521,18 +521,16 @@ focused_screen() {
   #                 |awk '{print $4}')
 
 
-  # new plan, party people. Use xdpyinfo to get the window id of whatever has focus
-  # from there, we will assume we're running i3 (DESKTOP_STARTUP_ID should start with "i3"
-  # otherwise, we'll need a new plan. In reality, this was always assumed anyway,
-  # just with a brittle tie between things
+  # new plan, party people. Since we assume we're running i3
+  # (DESKTOP_STARTUP_ID should start with "i3"), we can use i3-msg -t get_tree
+  # to find the only window with "focused": true property, and grab the output
   if ! env|grep -q 'DESKTOP_STARTUP_ID=i3'; then
     echo Currently this function supports i3wm only >&2
     exit 1
   fi
-  focusedwindowid=$(xdpyinfo |grep focus |awk '{print $3}'|cut -d, -f1)
   i3-msg -t get_tree |jq "
 def flat:
-  { output: (if (.window == $(printf '%d' "$focusedwindowid")) then (.output) else (.nodes[] |flat) end)};
+  { output: (if (.focused == true) then (.output) else (.nodes[] |flat) end)};
 
 .nodes[] | flat" | grep -v -e '[{}]'|awk '{print $2}' |cut -d\" -f2
 }
