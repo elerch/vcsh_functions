@@ -615,6 +615,15 @@ install_language_servers () {
     go get -u github.com/saibing/bingo
 }
 
+install_firefox () {
+  [ $(os) != "linux" ] && echo 'linux only - please add others!' >&2 && return 1
+  download https://download.mozilla.org/\?product\=firefox-latest-ssl\&os\=linux64\&lang\=en-US /tmp/firefox.tar.bz2
+  mkdir -p "$HOME/.local"
+  tar -C "$HOME/.local" -xjf /tmp/firefox.tar.bz2
+  ln -s "$HOME/.local/firefox/firefox" "$HOME/.local/bin"
+  rm /tmp/firefox.tar.bz2
+}
+
 set_env_from_secret () {
   # Need a subshell so we don't whack environment variables
   (
