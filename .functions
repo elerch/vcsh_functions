@@ -249,6 +249,15 @@ install_jq() {
   chmod 755 "${HOME}/.local/bin/jq"
 }
 
+install_neovim() {
+  [ $(os) != "linux" ] && echo 'linux only - please add others!' >&2 && return 1
+  release_tag=$(curl -s https://api.github.com/repos/neovim/neovim/releases |jq -r '[.[] | select(.prerelease == false)][0].tag_name')
+  url="https://github.com/neovim/neovim/releases/download/${release_tag}/nvim.appimage"
+  download "$url" "${HOME}/.local/bin/nvim"
+  chmod 755 "${HOME}/.local/bin/nvim"
+  unset release_tag url
+}
+
 install_go() {
   arch="$(os)-$(arch)"
   # YOLO: We'll parse the HTML of the download page
