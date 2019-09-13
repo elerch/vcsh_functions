@@ -243,6 +243,12 @@ install_helm() {
   unset release_tag url sum_url tmp_root helm tiller
 }
 
+install_jq() {
+  [ $(os) != "linux" ] && echo 'linux only - please add others!' >&2 && return 1
+  download "https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64" "${HOME}/.local/bin/jq"
+  chmod 755 "${HOME}/.local/bin/jq"
+}
+
 install_go() {
   arch="$(os)-$(arch)"
   # YOLO: We'll parse the HTML of the download page
