@@ -305,11 +305,27 @@ install_aws_vault() {
 ########################################################################
 # Docker containers
 ########################################################################
+allow_xhost_for_containers() {
+  if [ "$1" = "root" ] && [ "$(alias docker)" != "docker=podman" ]; then
+    # Give display rights to the user if not already enabled
+    xhost | grep -q "SI:localuser:root" || \
+      xhost +SI:localuser:"root"
+  else
+    xhost | grep -q "SI:localuser:${USER}" || \
+      xhost +SI:localuser:"${USER}"
+  fi
+}
+user_param_for_x() {
+  # In rootless mode, we want to run as root, which will map to the right
+  # uid outside the container. Otherwise we can't seem to open the display
+  if [ "$(alias docker)" != "docker=podman" ]; then
+    echo "0:0"
+  else
+    echo "$(id -u "$USER"):$(id -g "$USER")"
+  fi
+}
 generic_x_enabled_run_as_root() {
-  # Give display rights to the user if not already enabled
-  xhost | grep -q "SI:localuser:root" || \
-    xhost +SI:localuser:"root"
-
+  allow_xhost_for_containers root
   # --device /dev/snd \
 
   docker run  \
@@ -329,9 +345,7 @@ generic_x_enabled_run_as_root() {
 }
 
 zoom() {
-  # Give display rights to the user if not already enabled
-  xhost | grep -q "SI:localuser:${USER}" || \
-    xhost +SI:localuser:"${USER}"
+  allow_xhost_for_containers
 
   # --device /dev/snd \
 
@@ -346,7 +360,7 @@ zoom() {
     -e PULSE_SERVER="unix:${XDG_RUNTIME_DIR}/pulse/native" \
     -v "${XDG_RUNTIME_DIR}/pulse/native:${XDG_RUNTIME_DIR}/pulse/native" \
     --group-add video \
-    -u "$(id -u "$USER"):$(id -g "$USER")" \
+    -u $(user_param_for_x) \
     --name zoom \
     -d \
     --rm \
@@ -369,9 +383,7 @@ create_secondary_pa_for_root() {
 # We only have a couple config files exposed to host, so we will run this
 # as root in the container
 workspaces() {
-  # Give display rights to the ROOT user if not already enabled
-  xhost | grep -q "SI:localuser:root" || \
-    xhost +SI:localuser:"root"
+  allow_xhost_for_containers root
 
   eval "$(create_secondary_pa_for_root)"
 
@@ -409,23 +421,17 @@ workspaces() {
 }
 
 libreoffice() {
-  # Give display rights to the user if not already enabled
-  xhost | grep -q "SI:localuser:${USER}" || \
-    xhost +SI:localuser:"${USER}"
+  allow_xhost_for_containers
 
   docs="${1:-$HOME/}"
 
-  # Give display rights to the user if not already enabled
-  xhost | grep -q "SI:localuser:${USER}" || \
-    xhost +SI:localuser:"${USER}"
-
-   docker run --rm -d \
+  docker run --rm -d \
           -v /etc/localtime:/etc/localtime:ro \
           -v /etc/passwd:/etc/passwd:ro \
           -v /tmp/.X11-unix:/tmp/.X11-unix \
           -e DISPLAY=unix"$DISPLAY" \
           -v "$docs":/home/user \
-          -u "$(id -u "$USER")":"$(id -g "$USER")" \
+          -u $(user_param_for_x) \
           -e GDK_SCALE \
           -e GDK_DPI_SCALE \
           --name libreoffice \
@@ -437,9 +443,7 @@ chrome() {
   git -C "$HOME/.config/chrome" checkout -f "${1:-anonymous}" > /dev/null
   git -C "$HOME/.config/chrome" clean -df >/dev/null
 
-  # Give display rights to the user if not already enabled
-  xhost | grep -q "SI:localuser:${USER}" || \
-    xhost +SI:localuser:"${USER}"
+  allow_xhost_for_containers
 
   # We're giving 2GB by default. I tried lower values, but
   # some of the normal Google properties I use suck memory
@@ -463,7 +467,7 @@ chrome() {
     -v "${XDG_RUNTIME_DIR}"/pulse/native:"${XDG_RUNTIME_DIR}"/pulse/native \
     --group-add video \
     -v /dev/shm:/dev/shm \
-    -u "$(id -u "$USER")":"$(id -g "$USER")" \
+    -u $(user_param_for_x) \
     --name chrome \
     --rm \
     jess/chrome
@@ -551,7 +555,7 @@ def flat:
 }
 
 rdesktop () {
-  xhost | grep -q "SI:localuser:${USER}" || xhost +SI:localuser:"${USER}"
+  allow_xhost_for_containers
   geometry=""
   if [ $# -eq 1 ]; then
     # establish geometry based on 80% of current screen
@@ -560,7 +564,11 @@ rdesktop () {
   echo "Container attached to TTY. Ctrl-P + Ctrl-Q to detach"
   # would be nice to name the container after the host connection
   # shellcheck disable=SC2086
-  docker run -it -e DISPLAY=unix"$DISPLAY" -v /tmp/.X11-unix:/tmp/.X11-unix -v "$HOME":"$HOME" -u "$(id -u)":"$(id -g)" jess/rdesktop -u "${USER}" $geometry "$@"
+  docker run -it --rm -e DISPLAY=unix"$DISPLAY" \
+    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    -v "$HOME":"$HOME" \
+    -u $(user_param_for_x) \
+    jess/rdesktop -u "${USER}" $geometry "$@"
   unset geometry
 }
 
