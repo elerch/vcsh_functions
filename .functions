@@ -324,6 +324,53 @@ install_keepass () {
   unset repo release_tag
 }
 
+install_linters() {
+  [ $(os) != "linux" ] && echo 'linux only - please add others!' >&2 && return 1
+
+  mkdir -p "$HOME/.local"
+  # shellcheck
+  if ! command_exists shellcheck || [ "$1" = "-f" ]; then
+    scversion="stable" # or "v0.4.7", or "latest"
+    download "https://storage.googleapis.com/shellcheck/shellcheck-${scversion?}.linux.x86_64.tar.xz" /tmp/shellcheck.tar.xz
+    tar -C /tmp -xJf /tmp/shellcheck.tar.xz
+    cp "/tmp/shellcheck-${scversion}/shellcheck" "${HOME}"/.local/bin
+    rm -rf /tmp/shellcheck.tar.xz "/tmp/shellcheck-${scversion}"
+  else
+    echo shellcheck already installed. Use -f to force install
+  fi
+
+  # cfn-lint
+  if ! command_exists cfn-lint || [ "$1" = "-f" ]; then
+    pip3 install --user cfn-lint
+  else
+    echo cfn-lint already installed. Use -f to force install
+  fi
+
+  # hadolint
+  if ! command_exists hadolint || [ "$1" = "-f" ]; then
+    repo=hadolint/hadolint
+    release_tag=$(curl -s https://api.github.com/repos/${repo}/releases |jq -r '[.[] | select(.prerelease == false)][0].tag_name')
+    download https://github.com/${repo}/releases/download/${release_tag}/hadolint-Linux-$(arch x86var) "$HOME/.local/bin/hadolint"
+    chmod 755 "$HOME/.local/bin/hadolint"
+  else
+    echo hadolint already installed. Use -f to force install
+  fi
+
+  # golint
+  # checkstyle
+  # eslint
+  # flake8
+  if ! command_exists flake8|| [ "$1" = "-f" ]; then
+    pip3 install --user flake8
+  else
+    echo flake8 already installed. Use -f to force install
+  fi
+
+  # scalastyle
+  # swaglint
+  # yamllint
+}
+
 ########################################################################
 # Docker containers
 ########################################################################
