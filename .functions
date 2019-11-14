@@ -726,7 +726,7 @@ get_secret () {
   fi
   unset secret
 }
-set_env_from_secret () {
+set_env_from_aws_secret () {
   # Need a subshell so we don't whack environment variables
   (
     secretid="${1:-S3ReadCreds}"
