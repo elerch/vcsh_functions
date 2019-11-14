@@ -312,6 +312,18 @@ install_firefox () {
   rm /tmp/firefox.tar.bz2
 }
 
+install_keepass () {
+  [ $(os) != "linux" ] && echo 'linux only - please add others!' >&2 && return 1
+  repo=keepassxreboot/keepassxc
+  release_tag=$(curl -s https://api.github.com/repos/${repo}/releases |jq -r '[.[] | select(.prerelease == false)][0].tag_name')
+  mkdir -p "$HOME/.local"
+  download https://github.com/${repo}/releases/download/${release_tag}/KeePassXC-${release_tag}-x86_64.AppImage "$HOME/.local/bin/KeePassXC-${release_tag}-x86_64.AppImage"
+  chmod 755 "$HOME/.local/bin/KeePassXC-${release_tag}-x86_64.AppImage"
+  rm "$HOME/.local/bin/keepassxc"
+  ln -s "$HOME/.local/bin/KeePassXC-${release_tag}-x86_64.AppImage" "$HOME/.local/bin/keepassxc"
+  unset repo release_tag
+}
+
 ########################################################################
 # Docker containers
 ########################################################################
