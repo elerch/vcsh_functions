@@ -699,8 +699,32 @@ install_language_servers () {
     go get -u github.com/saibing/bingo
 }
 
+gpgedit () {
+  tmpfile="$(mktemp)"
+  gpg -d "$1" >> "$tmpfile"
+  "$EDITOR" "$tmpfile"
+  gpg -e -s --default-recipient-self < "$tmpfile" > "$1"
+  rm "$tmpfile"
+  unset tmpfile
 }
 
+get_secret () {
+  if [ $# -eq 0 ]; then
+    echo "usage: get_secret <secret name> [-d]" >&2
+    echo "       -d evaluate secret data as environment variable assignments - put in docker arg format" >&2
+    return 1
+  fi
+  if ! [ -r "${HOME}/.secrets" ]; then
+    echo "# name|secretdata" | gpg -e -s --default-recipient-self > "${HOME}/.secrets"
+  fi
+  # Assumes file is organized so it's secretname|data...
+  secret="$(gpg -d "${HOME}/.secrets" 2>/dev/null | grep -e "^${1}|" | cut -d\| -f 2)"
+  if [ "$2" = "-d" ]; then
+    for var in $(echo "$secret"); do printf " -e $var"; done && printf '\n'
+  else
+    echo "$secret"
+  fi
+  unset secret
 }
 set_env_from_secret () {
   # Need a subshell so we don't whack environment variables
