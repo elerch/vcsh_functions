@@ -750,3 +750,7 @@ set_env_from_aws_secret () {
     eval "$SHELL"
   )
 }
+
+aws_vault_docker_variables () {
+  echo "-e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_SESSION_TOKEN -e AWS_SECURITY_TOKEN -e AWS_REGION -e AWS_DEFAULT_REGION"
+}
