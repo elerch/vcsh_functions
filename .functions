@@ -375,7 +375,7 @@ install_linters() {
 # Docker containers
 ########################################################################
 allow_xhost_for_containers() {
-  if [ "$1" = "root" ] && [ "$(alias docker)" != "docker=podman" ]; then
+  if [ "$1" = "root" ] || alias docker | grep -q podman; then
     # Give display rights to the user if not already enabled
     xhost | grep -q "SI:localuser:root" || \
       xhost +SI:localuser:"root"
@@ -387,7 +387,7 @@ allow_xhost_for_containers() {
 user_param_for_x() {
   # In rootless mode, we want to run as root, which will map to the right
   # uid outside the container. Otherwise we can't seem to open the display
-  if [ "$(alias docker)" != "docker=podman" ]; then
+  if alias docker | grep -q podman; then
     echo "0:0"
   else
     echo "$(id -u "$USER"):$(id -g "$USER")"
