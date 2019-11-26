@@ -508,18 +508,25 @@ workspaces() {
 libreoffice() {
   allow_xhost_for_containers
 
-  docs="${1:-$HOME/}"
+  docs="$HOME"
+  if [ $# -gt 1 ] && [ "$1" -eq "-h" ]; then
+    docs="${2}"
+    shift; shift
+  fi
 
   docker run --rm -d \
           -v /etc/localtime:/etc/localtime:ro \
           -v /etc/passwd:/etc/passwd:ro \
           -v /tmp/.X11-unix:/tmp/.X11-unix \
           -e DISPLAY=unix"$DISPLAY" \
-          -v "$docs":/home/user \
+          -v "$docs":"$docs" \
+          -w "$PWD" \
+          -e HOME="$docs" \
           -u $(user_param_for_x) \
           -e GDK_SCALE \
           -e GDK_DPI_SCALE \
-          elerch/libreoffice
+          elerch/libreoffice $@
+  unset docs
 }
 
 chrome() {
