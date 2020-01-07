@@ -538,19 +538,29 @@ libreoffice() {
 }
 
 chrome() {
+  ! [ -d "$HOME/.config/chrome" ] && mkdir -p "$HOME/.config/chrome"
   # anonymous by default. Other branch is "loggedin"
   git -C "$HOME/.config/chrome" checkout -f "${1:-anonymous}" > /dev/null
   git -C "$HOME/.config/chrome" clean -df >/dev/null
 
   allow_xhost_for_containers
-
+  user="$(user_param_for_x)"
+  resource_limits=""
+  if [ "$user" != "0:0" ]; then
+    # running in rootless mode
+    # shellcheck disable=2086
+    resource_limits="--cpuset-cpus 2 --memory ${2:-"2048mb"}"
+  else
+    flags="--no-sandbox"
+  fi
   # We're giving 2GB by default. I tried lower values, but
   # some of the normal Google properties I use suck memory
   # like a pig. I'm looking at you, Google meetings...
+  # shellcheck disable=2046
+  # shellcheck disable=2116 # not sure why this works like that
   docker run -it \
     --net host \
-    --cpuset-cpus 2 \
-    --memory "${2:-"2048mb"}" \
+    $(echo "$resource_limits") \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
     -e DISPLAY=unix"$DISPLAY" \
     -v "$HOME"/Downloads:/home/chrome/Downloads \
