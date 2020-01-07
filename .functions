@@ -56,7 +56,7 @@ create_dotfile_repo() {
   rc=$?
   if [ $rc -ne 0 ]; then
     echo "Error from creation: checking to see if repo exists" >&2
-    github_out=$(curl -f -s "https://api.github.com/repos/$(cat $HOME/.private/github-user)/vcsh_${nodot}")
+    github_out=$(curl -f -s "https://api.github.com/repos/$(cat "$HOME/.private/github-user")/vcsh_${nodot}")
     rc=$?
     if [ $rc -eq 0 ]; then
       echo "WARNING: Repo exists, and this may be in a bad state" >&2
@@ -66,10 +66,9 @@ create_dotfile_repo() {
     echo "Could not create github repo" >&2
     return 1
   fi
-  ssh_url="$(echo "$github_out" | fgrep ssh_url | cut -f 2- -d : |cut -f 2 -d \")"
-  clone_url=$(echo "$github_out" | fgrep clone_url | cut -f 2- -d : |cut -f 2 -d \")
-  vcsh clone "$ssh_url" "$nodot"
-  if [ $? -ne 0 ]; then
+  ssh_url="$(echo "$github_out" | grep -F ssh_url | cut -f 2- -d : |cut -f 2 -d \")"
+  clone_url=$(echo "$github_out" | grep -F clone_url | cut -f 2- -d : |cut -f 2 -d \")
+  if vcsh clone "$ssh_url" "$nodot"; then
     echo "Error cloning $ssh_url to $nodot" >&3
     return 1
   fi
@@ -245,13 +244,13 @@ install_helm() {
 }
 
 install_jq() {
-  [ $(os) != "linux" ] && echo 'linux only - please add others!' >&2 && return 1
+  [ "$(os)" != "linux" ] && echo 'linux only - please add others!' >&2 && return 1
   download "https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64" "${HOME}/.local/bin/jq"
   chmod 755 "${HOME}/.local/bin/jq"
 }
 
 install_neovim() {
-  [ $(os) != "linux" ] && echo 'linux only - please add others!' >&2 && return 1
+  [ "$(os)" != "linux" ] && echo 'linux only - please add others!' >&2 && return 1
   release_tag=$(curl -s https://api.github.com/repos/neovim/neovim/releases |jq -r '[.[] | select(.prerelease == false)][0].tag_name')
   url="https://github.com/neovim/neovim/releases/download/${release_tag}/nvim.appimage"
   download "$url" "${HOME}/.local/bin/nvim"
@@ -304,8 +303,8 @@ install_aws_vault() {
 }
 
 install_firefox () {
-  [ $(os) != "linux" ] && echo 'linux only - please add others!' >&2 && return 1
-  download https://download.mozilla.org/\?product\=firefox-latest-ssl\&os\=linux64\&lang\=en-US /tmp/firefox.tar.bz2
+  [ "$(os)" != "linux" ] && echo 'linux only - please add others!' >&2 && return 1
+  download https://download.mozilla.org/\?product=firefox-latest-ssl\&os=linux64\&lang=en-US /tmp/firefox.tar.bz2
   mkdir -p "$HOME/.local"
   tar -C "$HOME/.local" -xjf /tmp/firefox.tar.bz2
   ln -s "$HOME/.local/firefox/firefox" "$HOME/.local/bin"
@@ -313,11 +312,11 @@ install_firefox () {
 }
 
 install_keepass () {
-  [ $(os) != "linux" ] && echo 'linux only - please add others!' >&2 && return 1
+  [ "$(os)" != "linux" ] && echo 'linux only - please add others!' >&2 && return 1
   repo=keepassxreboot/keepassxc
   release_tag=$(curl -s https://api.github.com/repos/${repo}/releases |jq -r '[.[] | select(.prerelease == false)][0].tag_name')
   mkdir -p "$HOME/.local"
-  download https://github.com/${repo}/releases/download/${release_tag}/KeePassXC-${release_tag}-x86_64.AppImage "$HOME/.local/bin/KeePassXC-${release_tag}-x86_64.AppImage"
+  download "https://github.com/${repo}/releases/download/${release_tag}/KeePassXC-${release_tag}-x86_64.AppImage" "$HOME/.local/bin/KeePassXC-${release_tag}-x86_64.AppImage"
   chmod 755 "$HOME/.local/bin/KeePassXC-${release_tag}-x86_64.AppImage"
   rm "$HOME/.local/bin/keepassxc"
   ln -s "$HOME/.local/bin/KeePassXC-${release_tag}-x86_64.AppImage" "$HOME/.local/bin/keepassxc"
@@ -325,10 +324,10 @@ install_keepass () {
 }
 
 install_linters() {
-  [ $(os) != "linux" ] && echo 'linux only - please add others!' >&2 && return 1
+  [ "$(os)" != "linux" ] && echo 'linux only - please add others!' >&2 && return 1
 
   mkdir -p "$HOME/.local"
-  # shellcheck
+  # sc -linter section
   if ! command_exists shellcheck || [ "$1" = "-f" ]; then
     scversion="stable" # or "v0.4.7", or "latest"
     download "https://storage.googleapis.com/shellcheck/shellcheck-${scversion?}.linux.x86_64.tar.xz" /tmp/shellcheck.tar.xz
@@ -350,7 +349,7 @@ install_linters() {
   if ! command_exists hadolint || [ "$1" = "-f" ]; then
     repo=hadolint/hadolint
     release_tag=$(curl -s https://api.github.com/repos/${repo}/releases |jq -r '[.[] | select(.prerelease == false)][0].tag_name')
-    download https://github.com/${repo}/releases/download/${release_tag}/hadolint-Linux-$(arch x86var) "$HOME/.local/bin/hadolint"
+    download "https://github.com/${repo}/releases/download/${release_tag}/hadolint-Linux-$(arch x86var)" "$HOME/.local/bin/hadolint"
     chmod 755 "$HOME/.local/bin/hadolint"
   else
     echo hadolint already installed. Use -f to force install
@@ -444,7 +443,7 @@ zoom() {
     -e PULSE_SERVER="unix:${XDG_RUNTIME_DIR}/pulse/native" \
     -v "${XDG_RUNTIME_DIR}/pulse/native:${XDG_RUNTIME_DIR}/pulse/native" \
     --group-add video \
-    -u $(user_param_for_x) \
+    -u "$(user_param_for_x)" \
     -d \
     --rm \
     jess/zoom-us
@@ -509,7 +508,7 @@ libreoffice() {
   allow_xhost_for_containers
 
   docs="$HOME"
-  if [ $# -gt 1 ] && [ "$1" -eq "-h" ]; then
+  if [ $# -gt 1 ] && [ "$1" = "-h" ]; then
     docs="${2}"
     shift; shift
   fi
@@ -557,23 +556,24 @@ chrome() {
     -e PULSE_SERVER=unix:"${XDG_RUNTIME_DIR}"/pulse/native \
     -v "${XDG_RUNTIME_DIR}"/pulse/native:"${XDG_RUNTIME_DIR}"/pulse/native \
     --group-add video \
-    -v /dev/shm:/dev/shm \
-    -u $(user_param_for_x) \
+    -u "$user" \
     --name chrome \
     --rm \
-    jess/chrome
+    jess/chrome $flags
 }
 
 docker_search_tags() {
-  [ ${#} -ne 1 ] && echo "docker-search-tags <image>" >&2 && return 1
+  [ ${#} -ne 1 ] && echo "docker_search_tags <image>" >&2 && return 1
   i=0
 
-  # This ends up with some jq error output at the end, but whatever - YOLO
-  while [ $? = 0 ]
+  tags="start"
+  while [ "$tags" != "" ]
   do
      i=$((i+1))
-     curl https://registry.hub.docker.com/v2/repositories/library/"${1}"/tags/?page=$i 2>/dev/null|jq -r '."results"[]["name"]'
+     tags=$(curl https://registry.hub.docker.com/v2/repositories/library/"${1}"/tags/\?page=$i 2>/dev/null|jq -r '."results"[]["name"]')
+     echo "$tags"
   done
+  unset tags
 }
 
 screen_geometry() {
@@ -590,7 +590,7 @@ screen_geometry() {
   #    2560x1440     59.95*+
   primarydisplay=$(echo "$currentdisplays"|grep primary|awk '{print $1}')
   selectedisplay=$primarydisplay
-  if [ ! -z "$1" ]; then
+  if [ -n "$1" ]; then
     if [ "$1" != "primary" ]; then
       selectedisplay="$1"
     fi
@@ -658,7 +658,7 @@ rdesktop () {
   docker run -it --rm -e DISPLAY=unix"$DISPLAY" \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
     -v "$HOME":"$HOME" \
-    -u $(user_param_for_x) \
+    -u "$(user_param_for_x)" \
     jess/rdesktop -u "${USER}" $geometry "$@"
   unset geometry
 }
@@ -727,7 +727,7 @@ get_secret () {
   # Assumes file is organized so it's secretname|data...
   secret="$(gpg -d "${HOME}/.secrets" 2>/dev/null | grep -e "^${1}|" | cut -d\| -f 2)"
   if [ "$2" = "-d" ]; then
-    for var in $(echo "$secret"); do printf " -e $var"; done && printf '\n'
+    for var in $(echo "$secret"); do printf " -e %s" "$var"; done && printf '\n'
   else
     echo "$secret"
   fi
@@ -750,7 +750,7 @@ set_env_from_aws_secret () {
       fi
     done
     unset AWS_SESSION_TOKEN AWS_SECURITY_TOKEN
-    if [ ! -z "$AWS_VAULT" ]; then
+    if [ -n "$AWS_VAULT" ]; then
       export AWS_VAULT="${AWS_VAULT}($secretid)"
     fi
     unset key value secretid
