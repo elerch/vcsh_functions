@@ -504,6 +504,15 @@ workspaces() {
   docker run "$@"
 }
 
+workspaces_linux() {
+  generic_x_enabled_run_as_root -d \
+    --rm \
+    -e TZ="${TZ:-$(cat /etc/timezone)}" \
+    -v "${HOME}/.Amazon Web Services/Amazon WorkSpaces:/Amazon Web Services/Amazon WorkSpaces" \
+    --net host \
+    docker.lerch.org/linux-workspaces:${1:-latest}
+}
+
 libreoffice() {
   allow_xhost_for_containers
 
