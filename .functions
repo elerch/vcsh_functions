@@ -530,10 +530,10 @@ libreoffice() {
           -v "$docs":"$docs" \
           -w "$PWD" \
           -e HOME="$docs" \
-          -u $(user_param_for_x) \
+          -u "$(user_param_for_x)" \
           -e GDK_SCALE \
           -e GDK_DPI_SCALE \
-          elerch/libreoffice $@
+          elerch/libreoffice "$@"
   unset docs
 }
 
