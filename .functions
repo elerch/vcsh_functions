@@ -88,7 +88,7 @@ create_dotfile_repo() {
 checkout = vcsh clone $clone_url $nodot
 " > ~/.config/mr/available.d/"$nodot.vcsh"
     ( cd ~/.config/mr/config.d && \
-      ln -s ../available.d/"$nodot.vcsh" )
+      ln -s ../available.d/"$nodot.vcsh" .)
     vcsh mr add -f "${HOME}/.config/mr/available.d/$nodot.vcsh"
     vcsh mr add -f "${HOME}/.config/mr/config.d/$nodot.vcsh"
     vcsh mr commit -m "add $nodot to configuration"
