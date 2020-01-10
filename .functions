@@ -509,8 +509,7 @@ workspaces_linux() {
     --rm \
     -e TZ="${TZ:-$(cat /etc/timezone)}" \
     -v "${HOME}/.Amazon Web Services/Amazon WorkSpaces:/Amazon Web Services/Amazon WorkSpaces" \
-    --net host \
-    docker.lerch.org/linux-workspaces:${1:-latest}
+    docker.lerch.org/linux-workspaces:"${1:-latest}"
 }
 
 libreoffice() {
