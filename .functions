@@ -416,7 +416,7 @@ generic_x_enabled_run_as_root() {
     -e PULSE_SERVER="unix:${XDG_RUNTIME_DIR}/pulse/native" \
     -v "${XDG_RUNTIME_DIR}/pulse/native:${XDG_RUNTIME_DIR}/pulse/native" \
     -e LANG \
-    $u "$uparam" \
+    $u $uparam \
     --group-add video \
     "$@"
 
