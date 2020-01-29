@@ -392,13 +392,22 @@ user_param_for_x() {
     echo "$(id -u "$USER"):$(id -g "$USER")"
   fi
 }
-generic_x_enabled_run_as_root() {
-  allow_xhost_for_containers root
+generic_x_enabled_run_as() {
+  # $1 required - "user" or "root"
+  allow_xhost_for_containers "$1"
   # --device /dev/snd \
-
-  if alias docker | grep -q podman; then
+  if [ "$1" = "root" ]; then
      u=-u; uparam="0:0"
+  else # run as user
+    if alias docker | grep -q podman; then
+       # podman - not sure we want to do anything here due to uid mapping
+       u=-u; uparam="0:0"
+    else
+      # docker
+      u=-u; uparam="$(id -u):$(id -g)"
+    fi
   fi
+  shift
   if [ -f /dev/video0 ]; then
     video=/dev/video0
   else
@@ -467,49 +476,21 @@ create_secondary_pa_for_root() {
 # We only have a couple config files exposed to host, so we will run this
 # as root in the container
 workspaces() {
-  allow_xhost_for_containers root
-
-  eval "$(create_secondary_pa_for_root)"
-
-  image=${1:-elerch/workspaces:latest}
-  appdatalocal="$HOME/.docker/Amazon WorkSpaces"
-  mkdir -p "$appdatalocal"
-  appdatacontainer="/root/.wine/drive_c/users/root/Local Settings/Application Data/Amazon Web Services/Amazon WorkSpaces"
-
-  xopts="-v /tmp/.X11-unix:/tmp/.X11-unix
-               -e DISPLAY=unix${DISPLAY}
-               --device /dev/dri"
-  soundopts="-e PULSE_SERVER=unix:$PULSE_SERVER_SECONDARY_SOCKET
-    -v $PULSE_SERVER_SECONDARY_SOCKET:$PULSE_SERVER_SECONDARY_SOCKET"
-
-  otheropts="-d
-    --net host
-    -e TZ=${TZ:-$(cat /etc/timezone)}"
-
-  set -- # Clear our args
-
-  # The spaces in these paths are an issue, so we'll special case that here
-  set --  -v "$appdatalocal/registrationCache.json:$appdatacontainer/registrationCache.json" \
-    -v "$appdatalocal/profiles:$appdatacontainer/profiles"
-  printf "%s\n%s\n%s\n%s\n" "${xopts}" "${soundopts}" "${otheropts}" "$image" \
-    | while read -r line; do
-    # We want parameter expansion and word splitting
-    # Useless echo (2116) is just wrong. This won't work without that
-    # shellcheck disable=2086,2116
-    for word in $(echo $line); do
-      set -- "$@" "$word"
-    done
-  done
-  unset image appdatalocal appdatacontainer xopts soundopts otheropts
-  docker run "$@"
-}
-
-workspaces_linux() {
-  generic_x_enabled_run_as_root -d \
+  if alias docker | grep -q podman; then
+    # Running as root under docker or podman
+    # /Amazon Web Services/Amazon WorkSpaces" \
+    vol="/Amazon Web Services/Amazon WorkSpaces"
+  else
+    # Running as user under docker
+    # /home/user/.local/share/Amazon\ Web\ Services/Amazon\ WorkSpaces/
+    vol="/home/user/.local/share/Amazon Web Services/Amazon WorkSpaces/"
+  fi
+  generic_x_enabled_run_as user -d \
     --rm \
     -e TZ="${TZ:-$(cat /etc/timezone)}" \
-    -v "${HOME}/.Amazon Web Services/Amazon WorkSpaces:/Amazon Web Services/Amazon WorkSpaces" \
+    -v "${HOME}/.Amazon Web Services/Amazon WorkSpaces:${vol}" \
     docker.lerch.org/linux-workspaces:"${1:-latest}"
+  unset vol
 }
 
 libreoffice() {
