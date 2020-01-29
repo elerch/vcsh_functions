@@ -718,6 +718,8 @@ get_secret () {
   if [ $# -eq 0 ]; then
     echo "usage: get_secret <secret name> [-d]" >&2
     echo "       -d evaluate secret data as environment variable assignments - put in docker arg format" >&2
+    echo '' >&2
+    echo 'view/edit secrets with gpgedit "${HOME}/.secrets"' >&2
     return 1
   fi
   if ! [ -r "${HOME}/.secrets" ]; then
