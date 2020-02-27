@@ -761,3 +761,39 @@ set_env_from_aws_secret () {
 aws_vault_docker_variables () {
   echo "-e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_SESSION_TOKEN -e AWS_SECURITY_TOKEN -e AWS_REGION -e AWS_DEFAULT_REGION"
 }
+
+
+has_ancestor_mosh() {
+  pstree -ps "$1" | grep -q mosh-server
+}
+
+is_mosh() {
+  # argument handling
+  verbose=0
+  for arg in "$@"; do
+      case $arg in
+        -v|--verbose) verbose=1 ;;
+        *) ;;
+      esac
+  done
+
+  if [ -n "$TMUX" ]; then
+    # current shell is under tmux
+    tmux_current_session=$(tmux display-message -p '#S')
+    tmux_client_id=$(tmux list-clients -t "${tmux_current_session}" -F '#{client_pid}')
+    # echo $tmux_current_session $tmux_client_id
+    pid="$tmux_client_id"
+    unset tmux_client_id tmux_current_session
+  else
+    pid="$$"
+  fi
+
+  if has_ancestor_mosh $pid; then
+    [ "$verbose" -eq 1 ] && echo "mosh"
+    unset verbose pid
+    return 0;        # exit code 0: is mosh
+  fi
+
+  unset verbose pid
+  return 1;    # exit code 1: not mosh
+}
