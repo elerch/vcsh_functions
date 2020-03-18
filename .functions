@@ -534,6 +534,33 @@ libreoffice() {
   unset docs
 }
 
+chromium() {
+  allow_xhost_for_containers
+  mkdir -p "$HOME"/.config/chromium
+  user="$(user_param_for_x)"
+  resource_limits=""
+  if [ "$user" != "0:0" ]; then
+    # running in rootless mode
+    resource_limits="--cpuset-cpus 2 --memory ${2:-"2048mb"}"
+  else
+    flags="--no-sandbox"
+  fi
+  echo "If this is the first run and you want audio to work, close down"
+  echo "the browser and run the following command:"
+  echo 'sed -i '"'"'s/"audio_capture_enabled":false/"audio_capture_enabled":true/'"'"'  ~/.config/chromium/Default/Preferences'
+  echo ''
+  echo 'see https://issues.guix.gnu.org/issue/36961 for more information'
+  # TODO: investigate this:
+  # --security-opt seccomp="$HOME"/chrome.json
+  # shellcheck disable=2046,2116
+  generic_x_enabled_run_as user -d \
+    --rm \
+    $(echo "$resource_limits") \
+    -v "$HOME"/Downloads:/home/user/Downloads \
+    -v "$HOME"/.config/chromium/:/home/user/.config/chromium \
+    docker.lerch.org/ungoogled-chromium:80.0.3987.132-1.buster1 $flags "$@"
+}
+
 chrome() {
   ! [ -d "$HOME/.config/chrome" ] && mkdir -p "$HOME/.config/chrome"
   # anonymous by default. Other branch is "loggedin"
