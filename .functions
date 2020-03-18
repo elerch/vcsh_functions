@@ -111,6 +111,26 @@ create_repo_github() {
   unset github_secret
 }
 
+create_repo_lerch() {
+  if [ $# -lt 2 ]; then
+    echo "Usage: create_repo_lerch reponame description [--public]"
+    return 1
+  fi
+  private="true"
+  [ $# -eq 3 ] && [ "$3" = "--public" ] && private="false"
+  git_secret=$(get_secret gitea-lerch)
+  if [ -z "${git_secret}" ]; then
+    echo "secret 'gitea-lerch' not found. use gpgedit ~/.secrets to add a token"
+  fi
+
+  curl -s "https://git.lerch.org/api/v1/user/repos" \
+    -H  "accept: application/json" \
+    -H  "Content-Type: application/json" \
+    -d "{  \"description\": \"$2\",  \"name\": \"$1\",  \"private\": $private }" \
+    -H "Authorization: token $(get_secret gitea-lerch)" | jq
+  unset git_secret private
+}
+
 aws_accountnumber() {
   aws sts get-caller-identity --output text --query 'Account'
 }
