@@ -425,7 +425,7 @@ generic_x_enabled_run_as() {
     fi
   fi
   shift
-  if [ -f /dev/video0 ]; then
+  if [ -c /dev/video0 ]; then
     video=/dev/video0
   else
     video=/dev/null
@@ -453,7 +453,7 @@ zoom() {
   allow_xhost_for_containers
 
   # --device /dev/snd \
-  if [ -f /dev/video0 ]; then
+  if [ -c /dev/video0 ]; then
     video=/dev/video0
   else
     video=/dev/null
