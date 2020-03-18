@@ -428,7 +428,7 @@ generic_x_enabled_run_as() {
   # Get first video device (or /dev/null if it does not exist)
   video=${$(find /dev -maxdepth 1 -name 'video*' |sort -V |head -1):-/dev/null}
   docker run  \
-    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    -v /tmp/.X11-unix:/tmp/.X11-unix:ro \
     -e DISPLAY="unix$DISPLAY" \
     -v /run/dbus/:/run/dbus/ \
     -v /dev/shm:/dev/shm \
@@ -453,7 +453,7 @@ zoom() {
   # Get first video device (or /dev/null if it does not exist)
   video=${$(find /dev -maxdepth 1 -name 'video*' |sort -V |head -1):-/dev/null}
   docker run  \
-    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    -v /tmp/.X11-unix:/tmp/.X11-unix:ro \
     -e DISPLAY="unix$DISPLAY" \
     -v /run/dbus/:/run/dbus/ \
     -v /dev/shm:/dev/shm \
@@ -516,7 +516,7 @@ libreoffice() {
   docker run --rm -d \
           -v /etc/localtime:/etc/localtime:ro \
           -v /etc/passwd:/etc/passwd:ro \
-          -v /tmp/.X11-unix:/tmp/.X11-unix \
+          -v /tmp/.X11-unix:/tmp/.X11-unix:ro \
           -e DISPLAY=unix"$DISPLAY" \
           -v "$docs":"$docs" \
           -w "$PWD" \
@@ -581,7 +581,7 @@ chrome() {
   docker run -it \
     --net host \
     $(echo "$resource_limits") \
-    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    -v /tmp/.X11-unix:/tmp/.X11-unix:ro \
     -e DISPLAY=unix"$DISPLAY" \
     -v "$HOME"/Downloads:/home/chrome/Downloads \
     -v "$HOME"/.config/chrome/:/data \
@@ -695,7 +695,7 @@ rdesktop () {
   # would be nice to name the container after the host connection
   # shellcheck disable=SC2086
   docker run -it --rm -e DISPLAY=unix"$DISPLAY" \
-    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    -v /tmp/.X11-unix:/tmp/.X11-unix:ro \
     -v "$HOME":"$HOME" \
     -u "$(user_param_for_x)" \
     jess/rdesktop -u "${USER}" $geometry "$@"
