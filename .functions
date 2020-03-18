@@ -531,6 +531,7 @@ libreoffice() {
 chromium() {
   allow_xhost_for_containers
   mkdir -p "$HOME"/.config/chromium
+  [ ! -f "$HOME"/.config/chromium-flags.conf ] && touch "$HOME"/.config/chromium-flags.conf
   user="$(user_param_for_x)"
   resource_limits=""
   if [ "$user" != "0:0" ]; then
@@ -552,6 +553,7 @@ chromium() {
     $(echo "$resource_limits") \
     -v "$HOME"/Downloads:"$HOME"/Downloads \
     -v "$HOME"/.config/chromium/:"$HOME"/.config/chromium \
+    -v "$HOME"/.config/chromium-flags.conf:"$HOME"/.config/chromium-flags.conf:ro \
     -w "$PWD" \
     -e HOME \
     docker.lerch.org/ungoogled-chromium:80.0.3987.132-1.buster1 $flags "$@"
