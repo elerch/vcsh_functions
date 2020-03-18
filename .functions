@@ -425,11 +425,8 @@ generic_x_enabled_run_as() {
     fi
   fi
   shift
-  if [ -c /dev/video0 ]; then
-    video=/dev/video0
-  else
-    video=/dev/null
-  fi
+  # Get first video device (or /dev/null if it does not exist)
+  video=${$(find /dev -maxdepth 1 -name 'video*' |sort -V |head -1):-/dev/null}
   docker run  \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
     -e DISPLAY="unix$DISPLAY" \
@@ -453,11 +450,8 @@ zoom() {
   allow_xhost_for_containers
 
   # --device /dev/snd \
-  if [ -c /dev/video0 ]; then
-    video=/dev/video0
-  else
-    video=/dev/null
-  fi
+  # Get first video device (or /dev/null if it does not exist)
+  video=${$(find /dev -maxdepth 1 -name 'video*' |sort -V |head -1):-/dev/null}
   docker run  \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
     -e DISPLAY="unix$DISPLAY" \
