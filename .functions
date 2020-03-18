@@ -434,6 +434,7 @@ generic_x_enabled_run_as() {
     -v /run/dbus/:/run/dbus/ \
     -v /dev/shm:/dev/shm \
     -v /etc/localtime:/etc/localtime:ro \
+    -v /etc/timezone:/etc/timezone:ro \
     --device /dev/dri \
     --device "${video}" \
     --group-add "$(getent group audio | cut -d: -f3)" \
