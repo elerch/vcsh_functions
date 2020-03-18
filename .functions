@@ -556,8 +556,10 @@ chromium() {
   generic_x_enabled_run_as user -d \
     --rm \
     $(echo "$resource_limits") \
-    -v "$HOME"/Downloads:/home/user/Downloads \
-    -v "$HOME"/.config/chromium/:/home/user/.config/chromium \
+    -v "$HOME"/Downloads:"$HOME"/Downloads \
+    -v "$HOME"/.config/chromium/:"$HOME"/.config/chromium \
+    -w "$PWD" \
+    -e HOME \
     docker.lerch.org/ungoogled-chromium:80.0.3987.132-1.buster1 $flags "$@"
 }
 
