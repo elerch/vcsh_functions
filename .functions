@@ -527,7 +527,7 @@ libreoffice() {
           -u "$(user_param_for_x)" \
           -e GDK_SCALE \
           -e GDK_DPI_SCALE \
-          elerch/libreoffice "$@"
+          docker.lerch.org/libreoffice:6.1.5 "$@"
   unset docs
 }
 
