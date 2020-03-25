@@ -829,3 +829,24 @@ is_mosh() {
   unset verbose pid
   return 1;    # exit code 1: not mosh
 }
+
+cloudflare() {
+  if [ $# -eq 0 ]; then
+    echo "usage: cloudflare restroute [curl options]" >&2
+    echo "" >&2
+    echo "CloudFlare docs are at: https://api.cloudflare.com/" >&2
+    echo "Useful examples:" >&2
+    echo "cloudflare zones/ - get all zones (useful to pipe through jq)" >&2
+    echo "cloudflare zones/:zone_id/dns_records - get all records for zone" >&2
+    echo "cloudflare zones/:zone_id/dns_records/:id -X POST -d '{...}' - create record" >&2
+    echo "cloudflare zones/:zone_id/dns_records/:id -X PUT -d '{...}' - update record (patch too)" >&2
+    echo "" >&2
+    echo "Records API docs here: https://api.cloudflare.com/#dns-records-for-a-zone-properties" >&2
+    return 1
+  fi
+  # shellcheck disable=2145
+  curl -s "https://api.cloudflare.com/client/v4/$@" \
+    -H "X-Auth-Email: $(get_secret cloudflare |cut -d= -f2|cut -d\  -f1)" \
+    -H "X-Auth-Key: $(get_secret cloudflare|cut -d= -f3)" \
+    -H "Content-Type: application/json"
+}
