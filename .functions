@@ -426,7 +426,7 @@ generic_x_enabled_run_as() {
   fi
   shift
   # Get first video device (or /dev/null if it does not exist)
-  video=$(find /dev -maxdepth 1 -name 'video*' |sort -V |head -1)
+  video=$(find /dev -maxdepth 1 -name 'video*' |sort -rV |head -1)
   video=${video:-/dev/null}
   docker run  \
     -v /tmp/.X11-unix:/tmp/.X11-unix:ro \
