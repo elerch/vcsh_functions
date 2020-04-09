@@ -452,10 +452,16 @@ generic_x_enabled_run_as() {
 zoom() {
   allow_xhost_for_containers
 
+  mkdir -p "$HOME"/Downloads/zoomrecordings
+  mkdir -p "$HOME"/.docker/zoom
+  containerroot=/root
   generic_x_enabled_run_as user \
     -d \
     --rm \
+    -v "$HOME"/Downloads/zoomrecordings:"$containerroot"/Documents/Zoom \
+    -v "$HOME"/.docker/zoom:"$containerroot"/.zoom \
     docker.lerch.org/zoom-us:3.5.361976.0301
+  unset containerroot
 }
 
 create_secondary_pa_for_root() {
