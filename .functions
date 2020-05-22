@@ -449,9 +449,17 @@ generic_x_enabled_run_as() {
     unset video
 }
 
-zoom() {
-  allow_xhost_for_containers
+teams() {
+  mkdir -p "$HOME"/.docker/teams
+  generic_x_enabled_run_as user \
+     -d \
+    --rm \
+    -v "$HOME"/.docker/teams:/root/.config \
+    docker.lerch.org/microsoftteams:1.3.00.5153 \
+    "$@"
+}
 
+zoom() {
   mkdir -p "$HOME"/Downloads/zoomrecordings
   mkdir -p "$HOME"/.docker/zoom
   containerroot=/root
