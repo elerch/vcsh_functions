@@ -460,6 +460,25 @@ teams() {
     "$@"
 }
 
+slack() {
+  mkdir -p "$HOME"/.docker/slack
+
+  containerroot=/root
+
+  # Tray icon works, but the container uses its own version
+  # of dunst, which isn't super-flexible. Ideally
+  # we need to figure out how to punch the dbus bus through
+  # -e DBUS_SESSION_BUS_ADDRESS
+  # -v "${XDG_RUNTIME_DIR}/bus:${XDG_RUNTIME_DIR}/bus"
+  generic_x_enabled_run_as user \
+    -d \
+    --rm \
+    -v "$HOME"/Downloads:"$containerroot"/Downloads \
+    -v "$HOME"/.docker/slack:"$containerroot"/.config/Slack \
+    docker.lerch.org/slack:4.4.3
+  unset containerroot
+}
+
 zoom() {
   mkdir -p "$HOME"/Downloads/zoomrecordings
   mkdir -p "$HOME"/.docker/zoom
