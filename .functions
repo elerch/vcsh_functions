@@ -152,24 +152,17 @@ fix_iterm2_italics() {
 
 aws() {
   # Allows use of aws-vault as if we were just executing aws
-  #
-  # This would be necessary if we are running as a shell script
-  # (note the cut ... -f 3 vs -f 2 in actual code below)
-  # shadowedcommand=$(for cmd in $(whereis -b aws |cut -d ' ' -f 3-); do \
-  #                   [ "aws" = "$(basename "$cmd")" ] && echo "$cmd" && break; done)
-  # Since we are a function, we can just take the top of the list:
-  shadowedcommand=$(for cmd in $(whereis -b aws |cut -d ' ' -f 2-); do \
-    [ "aws" = "$(basename "$cmd")" ] && echo "$cmd" && break; done)
+  # command is our POSIX-compliant way of bypassing this function and executing
+  # the underlying command: https://pubs.opengroup.org/onlinepubs/9699919799/utilities/command.html
   if [ -z "${AWS_VAULT}" ]; then
     if command_exists aws-vault; then
-      aws-vault exec "${AWS_DEFAULT_PROFILE:-default}" -- "${shadowedcommand}" "$@"
+      aws-vault exec "${AWS_DEFAULT_PROFILE:-default}" -- /bin/sh -c "command aws ${*}"
     else
-      "${shadowedcommand}" "$@"
+      command aws "$@"
     fi
   else
-    "${shadowedcommand}" "$@"
+    command aws "$@"
   fi
-  unset shadowedcommand
 }
 
 ########################################################################
