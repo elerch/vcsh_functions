@@ -454,6 +454,7 @@ teams() {
   generic_x_enabled_run_as user \
      -d \
     --rm \
+    -e TZ="${TZ:-$(cat /etc/timezone)}" \
     -v "$HOME"/.docker/teams:/root/.config \
     docker.lerch.org/microsoftteams:1.3.00.5153 \
     "$@"
