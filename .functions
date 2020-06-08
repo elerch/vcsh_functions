@@ -483,13 +483,23 @@ slack() {
   #   running as root, they'll pass uid 0, which obviously isn't correct
   # * I don't believe DBUS checks anything pid-wise, so we can ignore this
   #
-  # The solution to all this is to use --uidmap to make the container uid
-  # that matches the host to map to the host uid. I've never used this option
-  # and I suspect one of the things below is actually for groups and should
-  # be $(id -g), but I'm so excited this works at this point, that I'm
-  # skipping for now. In fact, reading the docs and the issue, I'm not sure
-  # that 2 out of the three uidmap calls below are correct:
+  # One solution to all this is to use --uidmap to make the container uid
+  # that matches the host to map to the host uid. This works with something
+  # like the following, and the advange is that it can be used if you need
+  # also handle root in the container:
+  #
+  #    --uidmap="0:1:$(id -u)" \
+  #    --uidmap="$(id -u):0:1" \
+  #    --uidmap=1001:1001:64536 \
+  #
+  # Reading the docs and the issue, I'm not sure
+  # that 2 out of the three uidmap calls above are correct:
   # https://www.mankier.com/1/podman-run#--uidmap
+  #
+  # podman (a.k.a. libpod) has a shortcut that's geared toward this problem,
+  # and it's the use of --userns=keep-id. It's specific to rootless containers
+  # running under the same uid value within the container and on the host. It's
+  # easier and we'll go that way for this container.
   #
   # Abstract sockets are a different problem, as there's no file on the
   # file system to represent them. To solve this problem, we can use --net=host
@@ -506,9 +516,7 @@ slack() {
     -e DBUS_SESSION_BUS_ADDRESS \
     -v "${XDG_RUNTIME_DIR}/bus:${XDG_RUNTIME_DIR}/bus" \
     -u "$(id -u):$(id -g)" \
-    --uidmap="0:1:$(id -u)" \
-    --uidmap="$(id -u):0:1" \
-    --uidmap=1001:1001:64536 \
+    --userns=keep-id \
     docker.lerch.org/slack:4.4.3-beta
   unset containerroot
 }
