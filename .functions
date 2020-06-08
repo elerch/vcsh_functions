@@ -456,19 +456,55 @@ teams() {
 slack() {
   mkdir -p "$HOME"/.docker/slack
 
-  containerroot=/root
+  containerroot=/home/user
 
-  # Tray icon works, but the container uses its own version
-  # of dunst, which isn't super-flexible. Ideally
-  # we need to figure out how to punch the dbus bus through
-  # -e DBUS_SESSION_BUS_ADDRESS
-  # -v "${XDG_RUNTIME_DIR}/bus:${XDG_RUNTIME_DIR}/bus"
+  # This is almost certainly podman (and probably rootless podman)
+  # specific. It's also specific to our user being uid 1000 most probably.
+  # Also specific to DBUS_SESSION_BUS_ADDRESS starting with "unix:path".
+  #
+  # It also might break later when podman is updated:
+  # https://github.com/containers/libpod/issues/6123
+  #
+  # dbus EXTERNAL auth works like this:
+  # * The Unix socket is opened with SO_PASSCRED, which has the kernel
+  #   provide pid/uid/gid triplet to the other end of the socket. In the
+  #   case of user (and process?) namespaces, the container uid/gid/pid
+  #   is mapped to the host.
+  # * DBUS authn/authz works on the host uid/gid
+  # * The above means that within a rootless container, we need to operate
+  #   as root, which is then mapped to the host user (which has permission)
+  # * HOWEVER, clients within the container are also expected by DBUS to
+  #   pass the uid in the AUTH string sent over the socket, so if they're
+  #   running as root, they'll pass uid 0, which obviously isn't correct
+  # * I don't believe DBUS checks anything pid-wise, so we can ignore this
+  #
+  # The solution to all this is to use --uidmap to make the container uid
+  # that matches the host to map to the host uid. I've never used this option
+  # and I suspect one of the things below is actually for groups and should
+  # be $(id -g), but I'm so excited this works at this point, that I'm
+  # skipping for now. In fact, reading the docs and the issue, I'm not sure
+  # that 2 out of the three uidmap calls below are correct:
+  # https://www.mankier.com/1/podman-run#--uidmap
+  #
+  # Abstract sockets are a different problem, as there's no file on the
+  # file system to represent them. To solve this problem, we can use --net=host
+  #
+  # As docker doesn't have user namespaces enabled by default, this problem
+  # is easier. We can simply run as the host uid and add --net=host in the
+  # case of an abstract socket and we should be good.
   generic_x_enabled_run_as user \
     -d \
     --rm \
+    -e TZ="${TZ:-$(cat /etc/timezone)}" \
     -v "$HOME"/Downloads:"$containerroot"/Downloads \
     -v "$HOME"/.docker/slack:"$containerroot"/.config/Slack \
-    docker.lerch.org/slack:4.4.3
+    -e DBUS_SESSION_BUS_ADDRESS \
+    -v "${XDG_RUNTIME_DIR}/bus:${XDG_RUNTIME_DIR}/bus" \
+    -u "$(id -u):$(id -g)" \
+    --uidmap="0:1:$(id -u)" \
+    --uidmap="$(id -u):0:1" \
+    --uidmap=1001:1001:64536 \
+    docker.lerch.org/slack:4.4.3-beta
   unset containerroot
 }
 
