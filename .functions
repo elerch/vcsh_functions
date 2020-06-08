@@ -72,17 +72,8 @@ create_dotfile_repo() {
     echo "Error cloning $ssh_url to $nodot" >&3
     return 1
   fi
-  vcsh "$nodot" add -f "$1"
 
-  # Add .gitignore. See http://www.martin-burger.net/blog/unix-shell/manage-dotfiles-quickly-and-effortlessly/
-  vcsh write-gitignore "$nodot"
-  vcsh "$nodot" add -f ".gitignore.d/$nodot"
-  vcsh write-gitignore "$nodot"
-  vcsh "$nodot" add .gitignore.d/"$nodot"
-
-  vcsh "$nodot" commit -m 'initial commit'
-  vcsh "$nodot" push
-
+  # Setup mr
   if [ -d ~/.config/mr ]; then
     echo "[\$HOME/.config/vcsh/repo.d/$nodot.git]
 checkout = vcsh clone $clone_url $nodot
@@ -93,7 +84,21 @@ checkout = vcsh clone $clone_url $nodot
     vcsh mr add -f "${HOME}/.config/mr/config.d/$nodot.vcsh"
     vcsh mr commit -m "add $nodot to configuration"
   fi
-  echo "vcsh push to push all changes"
+
+  # add dotfile
+  if [ -r "$1" ]; then
+    vcsh "$nodot" add -f "$1"
+
+    # Add .gitignore. See http://www.martin-burger.net/blog/unix-shell/manage-dotfiles-quickly-and-effortlessly/
+    vcsh write-gitignore "$nodot"
+    vcsh "$nodot" add -f ".gitignore.d/$nodot"
+    vcsh write-gitignore "$nodot"
+    vcsh "$nodot" add -f .gitignore.d/"$nodot"
+
+    vcsh "$nodot" commit -m 'initial commit'
+    vcsh "$nodot" push
+  fi
+
   unset nodot github_out ssh_url clone_url rc
 }
 
