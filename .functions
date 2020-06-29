@@ -251,6 +251,38 @@ install_alcritty() {
   chmod 755 "${HOME}/.local/bin/alacritty"
 }
 
+audit_command() {
+  red=$(tput setaf 1)
+  green=$(tput setaf 2)
+  normal=$(tput sgr0)
+  if [ "$1" = "-rc" ]; then
+    rc="$2"
+    shift; shift
+  else
+    command_exists "$1"
+    rc="$?"
+  fi
+  if [ "$rc" = "0" ]; then
+    printf '%-15s | %-20s | detected \n' "${1}" "${green}OK${normal}"
+  else
+    printf '%-15s | %-20s | %s\n' "${1}" "${red}NOT FOUND${normal}" "$2"
+  fi
+}
+audit_environment() {
+  audit_command zsh "zsh has some nice creature comforts like abbreviated cd"
+  getent passwd "$LOGNAME" | cut -d: -f7 |grep -q zsh
+  audit_command -rc $? zsh-login "use chsh to set login shell to zsh"
+  infocmp alacritty 2>/dev/null 1>&2
+  audit_command -rc $? "alacritty-term" "alacritty terminfo provides 24 bit color under tmux: install_alacritty_terminfo"
+  audit_command dummy "this dummy check will show a failure"
+  command_exists tmux && tmux -V | grep -q " 3"
+  audit_command -rc $? "tmux >= 3" "tmux 2.9 introduced breaking config changes - .tmux.conf may not work: nix-env -iA nixpkgs.tmux"
+  audit_command nvim "nvim is the best vim: nix-env -iA nixpkgs.nvim"
+  command_exists gpg && gpg --version |grep -q "gpg (GnuPG) 2"
+  audit_command -rc $? "gpg >= 2" "gpg --version should be 2.0 or higher. gpg 1 + gpg2 command likely no longer supported"
+  audit_command delta "delta will show diffs with language syntax highlighting if installed: nix-env -iA nixpkgs.delta"
+  audit_command alacritty "st is pretty good, but alacritty is fast and does reflow: install_alacritty"
+}
 install_rust() {
   curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path
 }
