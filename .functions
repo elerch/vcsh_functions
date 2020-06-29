@@ -103,8 +103,8 @@ checkout = vcsh clone $clone_url $nodot
 }
 
 create_repo_github() {
-  if [ $# != 1 ]; then
-    echo "Usage: create_repo_github reponame"
+  if [ $# -ne 1 ] && [ $# -ne 2 ] && [ $# -ne 3 ]; then
+    echo "Usage: create_repo_github reponame [description] [homepage]"
     return 1
   fi
   github_secret=$(get_secret github)
@@ -112,17 +112,29 @@ create_repo_github() {
     echo "secret 'github' not found. use gpgedit ~/.secrets to add a token"
   fi
 
-  curl -f -s -u "$github_secret" https://api.github.com/user/repos -d "{\"name\":\"$1\"}"
+  description=""
+  [ $# -ge 2 ] && description=",\"description\":\"$2\""
+  homepage=""
+  [ $# -eq 3 ] && homepage=",\"homepage\":\"$3\""
+  curl -f -s -u "$github_secret" https://api.github.com/user/repos -d "{\"name\":\"$1\"${description}${homepage}}"
   unset github_secret
+}
+
+create_repo_lerch_public_mirror() {
+  if [ $# -lt 2 ]; then
+    echo "Usage: create_repo_lerch_mirror reponame description"
+    return 1
+  fi
+  create_repo_lerch "$1" "$2" --public --with-github
 }
 
 create_repo_lerch() {
   if [ $# -lt 2 ]; then
-    echo "Usage: create_repo_lerch reponame description [--public]"
+    echo "Usage: create_repo_lerch reponame description [--public] [--with-github]"
     return 1
   fi
   private="true"
-  [ $# -eq 3 ] && [ "$3" = "--public" ] && private="false"
+  [ $# -ge 3 ] && [ "$3" = "--public" ] && private="false"
   git_secret=$(get_secret gitea-lerch)
   if [ -z "${git_secret}" ]; then
     echo "secret 'gitea-lerch' not found. use gpgedit ~/.secrets to add a token"
@@ -134,6 +146,55 @@ create_repo_lerch() {
     -d "{  \"description\": \"$2\",  \"name\": \"$1\",  \"private\": $private }" \
     -H "Authorization: token $(get_secret gitea-lerch)" | jq
   unset git_secret private
+
+  if [ $# -eq 4 ] && [ "$4" = "--with-github" ]; then
+    create_repo_github "$1" "readonly mirror of https://git.lerch.org/lobo/$1" "https://git.lerch.org/lobo/$1" >/dev/null
+    # shellcheck disable=1004,2016
+    update_repo_lerch_githook "lobo/$1" "post-receive" '#!/bin/sh
+repo=${PWD##*/}
+repo=${repo%%.git}
+
+githubuser=elerch
+githubrepo=${repo}
+token='"$(get_secret github-gitea-mirror-token)"'
+echo $(date -u -Iseconds) >> "../${repo}.log"
+git push --mirror --quiet \
+  "https://${githubuser}:${token}@github.com/${githubuser}/${githubrepo}.git" \
+  >>"../${repo}.log" 2>&1 &
+echo "Initiated push to https://github.com/${githubuser}/${githubrepo}"
+'
+  fi
+}
+
+update_repo_lerch_githook() {
+  if [ $# -lt 3 ]; then
+    echo "Usage: update_repo_lerch_githook reponame hookname content"
+    echo ""
+    echo "Repo name should be user/repo"
+    echo ""
+    echo "Hook names:"
+    echo "  pre-receive"
+    echo "  update"
+    echo "  post-receive"
+    return 1
+  fi
+  git_secret=$(get_secret gitea-lerch)
+  if [ -z "${git_secret}" ]; then
+    echo "secret 'gitea-lerch' not found. use gpgedit ~/.secrets to add a token" >&2
+    return 1
+  fi
+  if ! command_exists jq; then
+    echo "jq does not exist. Please install and try again" >&2
+    return 1
+  fi
+
+  curl -s "https://git.lerch.org/api/v1/repos/$1/hooks/git/$2" \
+    -X PATCH \
+    -H  "accept: application/json" \
+    -H  "Content-Type: application/json" \
+    -d "{  \"content\": $(echo "$3" |jq -aRs .) }" \
+    -H "Authorization: token $(get_secret gitea-lerch)" | jq
+  unset git_secret
 }
 
 aws_accountnumber() {
