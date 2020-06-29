@@ -225,6 +225,32 @@ checksum() {
   return 0
 }
 
+install_alacritty_terminfo() {
+  tmpfile="$(mktemp)"
+  latestversion="$(curl -sv https://github.com/alacritty/alacritty/releases/latest 2>&1 \
+                    |grep 'location:' \
+                    |sed 's#.*/##g'   \
+                    |tr -cd "[:print:]\n")"
+  curl -sL "https://github.com/alacritty/alacritty/releases/download/${latestversion}/alacritty.info" >> "$tmpfile"
+  tic -xe alacritty,alacritty-direct "$tmpfile"
+  rm "$tmpfile"
+  unset tmpfile latestversion
+}
+
+install_alcritty() {
+  [ "$(os)" != "linux" ] && echo 'linux only - please add others!' >&2 && return 1
+  # nix has some issue with alacritty. The tar file is a single executable
+  # Last tested version 0.4.3
+  latestversion="$(curl -sv https://github.com/alacritty/alacritty/releases/latest 2>&1 \
+                    |grep 'location:' \
+                    |sed 's#.*/##g'   \
+                    |tr -cd "[:print:]\n")"
+  tmpfile="$(mktemp)"
+  download "https://github.com/alacritty/alacritty/releases/download/${latestversion}/Alacritty-${latestversion}-ubuntu_18_04_amd64.tar.gz" "$tmpfile"
+  tar -C "$HOME"/.local/bin -xzf "$tmpfile"
+  chmod 755 "${HOME}/.local/bin/alacritty"
+}
+
 install_rust() {
   curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path
 }
