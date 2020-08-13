@@ -584,7 +584,7 @@ teams() {
     --rm \
     -e TZ="${TZ:-$(cat /etc/timezone)}" \
     -v "$HOME"/.docker/teams:/root/.config \
-    docker.lerch.org/microsoftteams:1.3.00.5153 \
+    r.lerch.org/microsoftteams:1.3.00.5153 \
     "$@"
 }
 
@@ -647,7 +647,7 @@ slack() {
     -v "${XDG_RUNTIME_DIR}/bus:${XDG_RUNTIME_DIR}/bus" \
     -u "$(id -u):$(id -g)" \
     --userns=keep-id \
-    docker.lerch.org/slack:4.4.3-beta
+    r.lerch.org/slack:4.4.3-beta
   unset containerroot
 }
 
@@ -660,7 +660,7 @@ zoom() {
     --rm \
     -v "$HOME"/Downloads/zoomrecordings:"$containerroot"/Documents/Zoom \
     -v "$HOME"/.docker/zoom:"$containerroot"/.zoom \
-    docker.lerch.org/zoom-us:5.0.398100.0427
+    r.lerch.org/zoom-us:5.0.398100.0427
   unset containerroot
 }
 
@@ -693,7 +693,7 @@ workspaces() {
     --rm \
     -e TZ="${TZ:-$(cat /etc/timezone)}" \
     -v "${HOME}/.Amazon Web Services/Amazon WorkSpaces:${vol}" \
-    docker.lerch.org/linux-workspaces:"${1:-latest}"
+    r.lerch.org/linux-workspaces:"${1:-latest}"
   unset vol
 }
 
@@ -717,7 +717,7 @@ libreoffice() {
           -u "$(user_param_for_x)" \
           -e GDK_SCALE \
           -e GDK_DPI_SCALE \
-          docker.lerch.org/libreoffice:6.1.5 "$@"
+          r.lerch.org/libreoffice:6.1.5 "$@"
   unset docs
 }
 
@@ -750,7 +750,7 @@ chromium() {
     -w "$PWD" \
     -e HOME \
     -e TZ=${TZ:-$(cat /etc/timezone)} \
-    docker.lerch.org/ungoogled-chromium:83.0.4103.116-1 $flags "$@"
+    r.lerch.org/ungoogled-chromium:83.0.4103.116-1 $flags "$@"
 }
 
 chrome() {
