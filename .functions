@@ -1,3 +1,14 @@
+act_on_body() {
+  if [ "$#" -eq 0 ]; then
+    echo 'usage: act_on_body <command>' >&2
+    echo '       typically this should be used in a pipe, e.g. ps -o pid,com | act_on_body sort -k2' >&2
+    return 1
+  fi
+  IFS= read -r header
+  printf '%s\n' "$header"
+  "$@"
+}
+
 # Dynamically load virtualenvwrapper functions to reduce shell startup
 # time.
 #
