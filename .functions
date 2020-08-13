@@ -750,7 +750,7 @@ chromium() {
     -w "$PWD" \
     -e HOME \
     -e TZ=${TZ:-$(cat /etc/timezone)} \
-    docker.lerch.org/ungoogled-chromium:80.0.3987.132-1.buster1 $flags "$@"
+    docker.lerch.org/ungoogled-chromium:83.0.4103.116-1 $flags "$@"
 }
 
 chrome() {
