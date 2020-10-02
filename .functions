@@ -867,11 +867,11 @@ focused_screen() {
 
 
   # new plan, party people. Since we assume we're running i3
-  # (DESKTOP_STARTUP_ID should start with "i3"), we can use i3-msg -t get_tree
+  # (XDG_CURRENT_DESKTOP should start with "i3"), we can use i3-msg -t get_tree
   # to find the only window with "focused": true property, and grab the output
-  if ! env|grep -q 'DESKTOP_STARTUP_ID=i3'; then
+  if ! env|grep -q 'XDG_CURRENT_DESKTOP=i3'; then
     echo Currently this function supports i3wm only >&2
-    exit 1
+    return 1
   fi
   i3-msg -t get_tree |jq "
 def flat:
@@ -881,20 +881,16 @@ def flat:
 }
 
 rdesktop () {
-  allow_xhost_for_containers
   geometry=""
   if [ $# -eq 1 ]; then
     # establish geometry based on 80% of current screen
-    geometry="-g $(screen_geometry "$(focused_screen)")"
+    geometry="-g $(screen_geometry "$(focused_screen)")" || return 1
   fi
   echo "Container attached to TTY. Ctrl-P + Ctrl-Q to detach"
   # would be nice to name the container after the host connection
   # shellcheck disable=SC2086
-  docker run -it --rm -e DISPLAY=unix"$DISPLAY" \
-    -v /tmp/.X11-unix:/tmp/.X11-unix:ro \
-    -v "$HOME":"$HOME" \
-    -u "$(user_param_for_x)" \
-    jess/rdesktop -u "${USER}" $geometry "$@"
+  generic_x_enabled_run_as "${USER}" -it --rm \
+    jess/rdesktop -r clipboard:PRIMARYCLIPBOARD -u "${USER}" $geometry "$@"
   unset geometry
 }
 
