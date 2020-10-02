@@ -660,7 +660,7 @@ zoom() {
     --rm \
     -v "$HOME"/Downloads/zoomrecordings:"$containerroot"/Documents/Zoom \
     -v "$HOME"/.docker/zoom:"$containerroot"/.zoom \
-    r.lerch.org/zoom-us:5.0.398100.0427
+    r.lerch.org/zoom-us:5.2.458699.0906
   unset containerroot
 }
 
