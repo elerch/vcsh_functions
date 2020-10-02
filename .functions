@@ -894,6 +894,18 @@ rdesktop () {
   unset geometry
 }
 
+remmina () {
+  [ ! -d "$HOME"/.docker/remmina ] && mkdir -p "$HOME"/.docker/remmina
+  generic_x_enabled_run_as "${USER}" --rm \
+    -e DBUS_SESSION_BUS_ADDRESS \
+    -v "${XDG_RUNTIME_DIR}/bus:${XDG_RUNTIME_DIR}/bus" \
+    -v "$HOME"/.docker/remmina:/root \
+    --userns keep-id \
+    -u "$(id -u):$(id -g)" \
+    -e HOME=/root \
+    r.lerch.org/remmina:1.4.8 "$@"
+}
+
 my_ipv4 () {
   curl -s -4 ifconfig.co
 }
