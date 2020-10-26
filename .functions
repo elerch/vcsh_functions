@@ -755,7 +755,7 @@ chromium() {
     -v "$HOME"/.config/chromium-flags.conf:"$HOME"/.config/chromium-flags.conf:ro \
     -w "$PWD" \
     -e HOME \
-    -e TZ=${TZ:-$(cat /etc/timezone)} \
+    -e TZ="${TZ:-$(cat /etc/timezone)}" \
     r.lerch.org/ungoogled-chromium:83.0.4103.116-1 $flags "$@"
 }
 
