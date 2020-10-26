@@ -233,18 +233,36 @@ fix_iterm2_italics() {
   tic /tmp/xterm-256color.terminfo
 }
 
+__aws() {
+  # TODO: Allow s3 copy-to-local operations work, as well as anything with
+  #       a potential file:// parameter
+  version=${AWS_CLI_VERSION:-2.0.59}
+  if command_exists podman; then
+    # shellcheck disable=2046
+    podman run --rm $(aws_vault_docker_variables) -it amazon/aws-cli:"$version" "$@"
+  elif command_exists docker; then
+    # shellcheck disable=2046
+    docker run --rm $(aws_vault_docker_variables) -it amazon/aws-cli:"$version" "$@"
+  else
+    command aws "$@"
+  fi
+  rc=$?
+  unset version
+  return $?
+}
+
 aws() {
   # Allows use of aws-vault as if we were just executing aws
   # command is our POSIX-compliant way of bypassing this function and executing
   # the underlying command: https://pubs.opengroup.org/onlinepubs/9699919799/utilities/command.html
   if [ -z "${AWS_VAULT}" ]; then
     if command_exists aws-vault; then
-      aws-vault exec "${AWS_DEFAULT_PROFILE:-default}" -- /bin/sh -c "command aws ${*}"
+      aws-vault exec "${AWS_DEFAULT_PROFILE:-default}" -- /bin/bash -ic "__aws ${*}"
     else
-      command aws "$@"
+      __aws "$@"
     fi
   else
-    command aws "$@"
+    __aws "$@"
   fi
 }
 
