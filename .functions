@@ -79,8 +79,11 @@ create_dotfile_repo() {
   fi
   ssh_url="$(echo "$github_out" | grep -F ssh_url | cut -f 2- -d : |cut -f 2 -d \")"
   clone_url=$(echo "$github_out" | grep -F clone_url | cut -f 2- -d : |cut -f 2 -d \")
-  if vcsh clone "$ssh_url" "$nodot"; then
-    echo "Error cloning $ssh_url to $nodot" >&3
+  vcsh clone "$ssh_url" "$nodot"
+  rc=$?
+  if [ $rc -ne 0 ]; then
+    echo "Error cloning $ssh_url to $nodot" >&2
+    echo "$github_out"
     return 1
   fi
 
@@ -127,8 +130,11 @@ create_repo_github() {
   [ $# -ge 2 ] && description=",\"description\":\"$2\""
   homepage=""
   [ $# -eq 3 ] && homepage=",\"homepage\":\"$3\""
-  curl -f -s -u "$github_secret" https://api.github.com/user/repos -d "{\"name\":\"$1\"${description}${homepage}}"
+  out=$(curl -s -u "$github_secret" https://api.github.com/user/repos -d "{\"name\":\"$1\"${description}${homepage}}")
   unset github_secret
+  echo "$out" | grep -q errors && unset out && return 1
+  echo "$out"
+  return 0
 }
 
 create_repo_lerch_public_mirror() {
