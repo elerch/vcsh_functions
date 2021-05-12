@@ -596,7 +596,17 @@ generic_x_enabled_run_as() {
   fi
   shift
   # Get first video device (or /dev/null if it does not exist)
-  video=$(find /dev -maxdepth 1 -name 'video*' |sort -rV |head -1)
+  # Linux 4.16 and newer create 2 video devices per physical device,
+  # one for the device and one for metadata rolling off the device,
+  # so the most probable device to want passed through is the
+  # reverse version sort of video devices, minus 1
+  # Commit:
+  # https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=088ead25524583e2200aa99111bea2f66a86545a
+  # First version landed in:
+  # https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/media/usb/uvc/uvc_driver.c?h=v4.16&id=0adb32858b0bddf4ada5f364a84ed60b196dbcda
+  # More info:
+  # https://unix.stackexchange.com/questions/512759/multiple-dev-video-for-one-physical-device/539573#539573
+  video=$(find /dev -maxdepth 1 -name 'video*' |sort -rV |head -2|tail -1)
   video=${video:-/dev/null}
   video=${VIDEO:-$video}
   docker run  \
