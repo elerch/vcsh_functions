@@ -964,13 +964,14 @@ authorize_security_group_ingress () {
 revoke_security_group_ingress () {
   [ ${#} -ne 3 ] && echo "revoke_security_group_ingress <groupname> <protocol> <port>" >&2 && return 1
   # looking for security group description in the format Host:$HOST
-  ips="$(aws ec2 describe-security-groups --group-name "$1" | \
-           jq -r ".SecurityGroups[0].IpPermissions[0].IpRanges[] | select(.Description==\"Host:$HOST\") | .CidrIp")" 2>/dev/null
+  sgs="$(aws ec2 describe-security-groups --no-cli-pager --group-name "$1")"
+  ips="$(echo "$sgs" | \
+           jq -r ".SecurityGroups[0].IpPermissions[].IpRanges[] | select(.Description==\"Host:$HOST\") | .CidrIp")"
   [ -z "$ips" ] && echo "Ip not found for host on SG $1" && return 0
   for ip in $(echo $ips); do
     aws ec2 revoke-security-group-ingress --group-name "$1" --protocol "$2" --port "$3" --cidr "$ip"
   done
-  unset ip ips
+  unset ip ips sgs
 }
 
 install_language_servers () {
