@@ -351,7 +351,7 @@ install_alacritty_terminfo() {
   unset tmpfile latestversion
 }
 
-install_alcritty() {
+install_alacritty() {
   [ "$(os)" != "linux" ] && echo 'linux only - please add others!' >&2 && return 1
   # nix has some issue with alacritty. The tar file is a single executable
   # Last tested version 0.4.3
