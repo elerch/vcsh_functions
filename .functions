@@ -622,82 +622,6 @@ teams() {
     "$@"
 }
 
-slack() {
-  mkdir -p "$HOME"/.docker/slack
-
-  containerroot=/home/user
-
-  # This is almost certainly podman (and probably rootless podman)
-  # specific. It's also specific to our user being uid 1000 most probably.
-  # Also specific to DBUS_SESSION_BUS_ADDRESS starting with "unix:path".
-  #
-  # It also might break later when podman is updated:
-  # https://github.com/containers/libpod/issues/6123
-  #
-  # dbus EXTERNAL auth works like this:
-  # * The Unix socket is opened with SO_PASSCRED, which has the kernel
-  #   provide pid/uid/gid triplet to the other end of the socket. In the
-  #   case of user (and process?) namespaces, the container uid/gid/pid
-  #   is mapped to the host.
-  # * DBUS authn/authz works on the host uid/gid
-  # * The above means that within a rootless container, we need to operate
-  #   as root, which is then mapped to the host user (which has permission)
-  # * HOWEVER, clients within the container are also expected by DBUS to
-  #   pass the uid in the AUTH string sent over the socket, so if they're
-  #   running as root, they'll pass uid 0, which obviously isn't correct
-  # * I don't believe DBUS checks anything pid-wise, so we can ignore this
-  #
-  # One solution to all this is to use --uidmap to make the container uid
-  # that matches the host to map to the host uid. This works with something
-  # like the following, and the advange is that it can be used if you need
-  # also handle root in the container:
-  #
-  #    --uidmap="0:1:$(id -u)" \
-  #    --uidmap="$(id -u):0:1" \
-  #    --uidmap=1001:1001:64536 \
-  #
-  # Reading the docs and the issue, I'm not sure
-  # that 2 out of the three uidmap calls above are correct:
-  # https://www.mankier.com/1/podman-run#--uidmap
-  #
-  # podman (a.k.a. libpod) has a shortcut that's geared toward this problem,
-  # and it's the use of --userns=keep-id. It's specific to rootless containers
-  # running under the same uid value within the container and on the host. It's
-  # easier and we'll go that way for this container.
-  #
-  # Abstract sockets are a different problem, as there's no file on the
-  # file system to represent them. To solve this problem, we can use --net=host
-  #
-  # As docker doesn't have user namespaces enabled by default, this problem
-  # is easier. We can simply run as the host uid and add --net=host in the
-  # case of an abstract socket and we should be good.
-  generic_x_enabled_run_as user \
-    -d \
-    --rm \
-    -e TZ="${TZ:-$(cat /etc/timezone)}" \
-    -v "$HOME"/Downloads:"$containerroot"/Downloads \
-    -v "$HOME"/.docker/slack:"$containerroot"/.config/Slack \
-    -e DBUS_SESSION_BUS_ADDRESS \
-    -v "${XDG_RUNTIME_DIR}/bus:${XDG_RUNTIME_DIR}/bus" \
-    -u "$(id -u):$(id -g)" \
-    --userns=keep-id \
-    r.lerch.org/slack:${SLACK_VERSION:-4.4.3-beta}
-  unset containerroot
-}
-
-zoom() {
-  mkdir -p "$HOME"/Downloads/zoomrecordings
-  mkdir -p "$HOME"/.docker/zoom
-  containerroot=/root
-  generic_x_enabled_run_as user \
-    -d \
-    --rm \
-    -v "$HOME"/Downloads/zoomrecordings:"$containerroot"/Documents/Zoom \
-    -v "$HOME"/.docker/zoom:"$containerroot"/.zoom \
-    r.lerch.org/zoom-us:${ZOOM_VERSION:-5.2.458699.0906}
-  unset containerroot
-}
-
 create_secondary_pa_for_root() {
   # This creates a socket in a 700 directory for pulseaudio. The socket itself
   # has anonymous access, but as it's for audio the threat model is at least
@@ -711,26 +635,6 @@ create_secondary_pa_for_root() {
   echo "export PULSE_SERVER_SECONDARY_SOCKET=$PULSE_SERVER_SECONDARY_SOCKET"
 
 }
-# We only have a couple config files exposed to host, so we will run this
-# as root in the container
-workspaces() {
-  if alias docker | grep -q podman; then
-    # Running as root under docker or podman
-    # /Amazon Web Services/Amazon WorkSpaces" \
-    vol="/Amazon Web Services/Amazon WorkSpaces"
-  else
-    # Running as user under docker
-    # /home/user/.local/share/Amazon\ Web\ Services/Amazon\ WorkSpaces/
-    vol="/home/user/.local/share/Amazon Web Services/Amazon WorkSpaces/"
-  fi
-  generic_x_enabled_run_as user -d \
-    --rm \
-    -e TZ="${TZ:-$(cat /etc/timezone)}" \
-    -v "${HOME}/.Amazon Web Services/Amazon WorkSpaces:${vol}" \
-    r.lerch.org/linux-workspaces:"${WORKSPACES_VERSION:-3.0.1.234}"
-  unset vol
-}
-
 libreoffice() {
   allow_xhost_for_containers
 
@@ -926,18 +830,6 @@ rdesktop () {
   generic_x_enabled_run_as "${USER}" -it --rm \
     jess/rdesktop -r clipboard:PRIMARYCLIPBOARD -u "${USER}" $geometry "$@"
   unset geometry
-}
-
-remmina () {
-  [ ! -d "$HOME"/.docker/remmina ] && mkdir -p "$HOME"/.docker/remmina
-  generic_x_enabled_run_as "${USER}" --rm \
-    -e DBUS_SESSION_BUS_ADDRESS \
-    -v "${XDG_RUNTIME_DIR}/bus:${XDG_RUNTIME_DIR}/bus" \
-    -v "$HOME"/.docker/remmina:/root \
-    --userns keep-id \
-    -u "$(id -u):$(id -g)" \
-    -e HOME=/root \
-    r.lerch.org/remmina:${REMMINA_VERSION:-1.4.8} "$@"
 }
 
 my_ipv4 () {
