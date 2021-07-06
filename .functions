@@ -245,26 +245,8 @@ __has_param() {
   return 1
 }
 __aws() {
-  # TODO: Allow s3 copy-to-local operations work, as well as anything with
-  #       a potential file:// parameter
-  version=${AWS_CLI_VERSION:-2.0.59}
-  if command_exists podman; then
-    opts=""
-    __has_param fileb "$@" && opts=$(echo -v ${HOME}:${HOME} -w $PWD)
-    __has_param file "$@" && opts="-v ${HOME}:${HOME} -w $PWD"
-    __has_param cp "$@" && opts="-v ${HOME}:${HOME} -w $PWD"
-    eval podman run "$opts" "$(aws_vault_docker_variables)" -it amazon/aws-cli:"$version" "\$@"
-  elif command_exists docker; then
-    opts=""
-    __has_param fileb "$@" && opts="-v ${HOME}:${HOME} -w $PWD"
-    __has_param file "$@" && opts="-v ${HOME}:${HOME} -w $PWD"
-    __has_param cp "$@" && opts="-v ${HOME}:${HOME} -w $PWD"
-    eval docker run --rm "$opts" "$(aws_vault_docker_variables)" -it amazon/aws-cli:"$version" "\$@"
-  else
-    command aws "$@"
-  fi
+  command aws "$@"
   rc=$?
-  unset version
   return $?
 }
 
