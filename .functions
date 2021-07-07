@@ -282,6 +282,8 @@ arch() {
     i386) arch="386";;
   esac
   [ "$1" = "x86var" ] && [ $arch = "amd64" ] && arch="x86_64"
+  [ "$#" -eq 2 ] && shift;
+  [ "$1" = "aarch64var" ] && [ $arch = "arm64" ] && arch="aarch64"
   echo $arch
   unset arch
 }
@@ -319,6 +321,17 @@ checksum() {
   fi
   unset sum
   return 0
+}
+
+install_aws_cli() {
+  tmpdir="$(mktemp -d)"
+  download "https://awscli.amazonaws.com/awscli-exe-linux-$(arch x86var aarch64var).zip" "${tmpdir}/awscliv2.zip"
+  unzip "${tmpdir}/awscliv2.zip" -d "${tmpdir}"
+  update=""
+  [ -f "${HOME}/.local/bin/aws" ] && update="--update"
+  "${tmpdir}/aws/install" -i "${HOME}/.local/aws-cli" -b "${HOME}/.local/bin" $update
+  rm -rf "$tmpdir"
+  unset tmpdir update
 }
 
 install_alacritty_terminfo() {
@@ -633,32 +646,7 @@ create_secondary_pa_for_root() {
     unset tdir
   fi
   echo "export PULSE_SERVER_SECONDARY_SOCKET=$PULSE_SERVER_SECONDARY_SOCKET"
-
 }
-libreoffice() {
-  allow_xhost_for_containers
-
-  docs="$HOME"
-  if [ $# -gt 1 ] && [ "$1" = "-h" ]; then
-    docs="${2}"
-    shift; shift
-  fi
-
-  docker run --rm -d \
-          -v /etc/localtime:/etc/localtime:ro \
-          -v /etc/passwd:/etc/passwd:ro \
-          -v /tmp/.X11-unix:/tmp/.X11-unix:ro \
-          -e DISPLAY=unix"$DISPLAY" \
-          -v "$docs":"$docs" \
-          -w "$PWD" \
-          -e HOME="$docs" \
-          -u "$(user_param_for_x)" \
-          -e GDK_SCALE \
-          -e GDK_DPI_SCALE \
-          r.lerch.org/libreoffice:${LIBREOFFICE_VERSION:-6.1.5} "$@"
-  unset docs
-}
-
 chromium() {
   allow_xhost_for_containers
   mkdir -p "$HOME"/.config/chromium
@@ -689,50 +677,6 @@ chromium() {
     -e HOME \
     -e TZ="${TZ:-$(cat /etc/timezone)}" \
     r.lerch.org/ungoogled-chromium:${UNGOOGLED_CHROMIUM_VERSION:-83.0.4103.116-1} $flags "$@"
-}
-
-chrome() {
-  ! [ -d "$HOME/.config/chrome" ] && mkdir -p "$HOME/.config/chrome"
-  # anonymous by default. Other branch is "loggedin"
-  git -C "$HOME/.config/chrome" checkout -f "${1:-anonymous}" > /dev/null
-  git -C "$HOME/.config/chrome" clean -df >/dev/null
-
-  allow_xhost_for_containers
-  user="$(user_param_for_x)"
-  resource_limits=""
-  if [ "$user" != "0:0" ]; then
-    # running in rootless mode
-    # shellcheck disable=2086
-    resource_limits="--cpuset-cpus 2 --memory ${2:-"2048mb"}"
-  else
-    flags="--no-sandbox"
-  fi
-  # We're giving 2GB by default. I tried lower values, but
-  # some of the normal Google properties I use suck memory
-  # like a pig. I'm looking at you, Google meetings...
-  # shellcheck disable=2046
-  # shellcheck disable=2116 # not sure why this works like that
-  docker run -it \
-    --net host \
-    $(echo "$resource_limits") \
-    -v /tmp/.X11-unix:/tmp/.X11-unix:ro \
-    -e DISPLAY=unix"$DISPLAY" \
-    -v "$HOME"/Downloads:/home/chrome/Downloads \
-    -v "$HOME"/.config/chrome/:/data \
-    -v /run/dbus/:/run/dbus/ \
-    -v /dev/shm:/dev/shm \
-    --security-opt seccomp="$HOME"/chrome.json \
-    --device /dev/snd \
-    --device /dev/dri \
-    --device /dev/video0 \
-    --group-add "$(getent group audio | cut -d: -f3)" \
-    -e PULSE_SERVER=unix:"${XDG_RUNTIME_DIR}"/pulse/native \
-    -v "${XDG_RUNTIME_DIR}"/pulse/native:"${XDG_RUNTIME_DIR}"/pulse/native \
-    --group-add video \
-    -u "$user" \
-    --name chrome \
-    --rm \
-    jess/chrome $flags
 }
 
 docker_search_tags() {
