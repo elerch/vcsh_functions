@@ -603,17 +603,6 @@ generic_x_enabled_run_as() {
     unset video
 }
 
-teams() {
-  mkdir -p "$HOME"/.docker/teams
-  generic_x_enabled_run_as user \
-     -d \
-    --rm \
-    -e TZ="${TZ:-$(cat /etc/timezone)}" \
-    -v "$HOME"/.docker/teams:/root/.config \
-    r.lerch.org/microsoftteams:${TEAMS_VERSION:-1.3.00.5153} \
-    "$@"
-}
-
 create_secondary_pa_for_root() {
   # This creates a socket in a 700 directory for pulseaudio. The socket itself
   # has anonymous access, but as it's for audio the threat model is at least
@@ -625,37 +614,6 @@ create_secondary_pa_for_root() {
     unset tdir
   fi
   echo "export PULSE_SERVER_SECONDARY_SOCKET=$PULSE_SERVER_SECONDARY_SOCKET"
-}
-chromium() {
-  allow_xhost_for_containers
-  mkdir -p "$HOME"/.config/chromium
-  [ ! -f "$HOME"/.config/chromium-flags.conf ] && touch "$HOME"/.config/chromium-flags.conf
-  user="$(user_param_for_x)"
-  resource_limits=""
-  if [ "$user" != "0:0" ]; then
-    # running in rootless mode
-    resource_limits="--cpuset-cpus 2 --memory ${2:-"2048mb"}"
-  else
-    flags="--no-sandbox"
-  fi
-  echo "If this is the first run and you want audio to work, close down"
-  echo "the browser and run the following command:"
-  echo 'sed -i '"'"'s/"audio_capture_enabled":false/"audio_capture_enabled":true/'"'"'  ~/.config/chromium/Default/Preferences'
-  echo ''
-  echo 'see https://issues.guix.gnu.org/issue/36961 for more information'
-  # TODO: investigate this:
-  # --security-opt seccomp="$HOME"/chrome.json
-  # shellcheck disable=2046,2116
-  generic_x_enabled_run_as user -d \
-    --rm \
-    $(echo "$resource_limits") \
-    -v "$HOME"/Downloads:"$HOME"/Downloads \
-    -v "$HOME"/.config/chromium/:"$HOME"/.config/chromium \
-    -v "$HOME"/.config/chromium-flags.conf:"$HOME"/.config/chromium-flags.conf:ro \
-    -w "$PWD" \
-    -e HOME \
-    -e TZ="${TZ:-$(cat /etc/timezone)}" \
-    r.lerch.org/ungoogled-chromium:${UNGOOGLED_CHROMIUM_VERSION:-83.0.4103.116-1} $flags "$@"
 }
 
 docker_search_tags() {
@@ -739,20 +697,6 @@ def flat:
   { output: (if (.focused == true) then (.output) else (.nodes[] |flat) end)};
 
 .nodes[] | flat" | grep -v -e '[{}]'|awk '{print $2}' |cut -d\" -f2
-}
-
-rdesktop () {
-  geometry=""
-  if [ $# -eq 1 ]; then
-    # establish geometry based on 80% of current screen
-    geometry="-g $(screen_geometry "$(focused_screen)")" || return 1
-  fi
-  echo "Container attached to TTY. Ctrl-P + Ctrl-Q to detach"
-  # would be nice to name the container after the host connection
-  # shellcheck disable=SC2086
-  generic_x_enabled_run_as "${USER}" -it --rm \
-    jess/rdesktop -r clipboard:PRIMARYCLIPBOARD -u "${USER}" $geometry "$@"
-  unset geometry
 }
 
 my_ipv4 () {
