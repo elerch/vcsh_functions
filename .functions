@@ -1,3 +1,5 @@
+# vi: ft=bash
+
 act_on_body() {
   if [ "$#" -eq 0 ]; then
     echo 'usage: act_on_body <command>' >&2
